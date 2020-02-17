@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prw
+  labels:
+    app: prw
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prw
+  template:
+    metadata:
+      labels:
+        app: prw
+    spec:
+      containers:
+      - name: pull-request-workflow
+        image: avano/pull-request-workflow:beta
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+          - name: prw-pvc
+            mountPath: /deployments/data
+          - name: config
+            mountPath: /deployments/config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 3
+      volumes:
+        - name: config
+          configMap:
+            name: prw-config

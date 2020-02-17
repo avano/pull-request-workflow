@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "node_id": "MDE3OlB1bGxSZXF1ZXN0UmV2aWV3ODA=",
+    "user": {
+      "login": "approved"
+    },
+    "body": "Here is the body for the review.",
+    "submitted_at": "2019-11-17T17:43:43Z",
+    "commit_id": "ecdd80bb57125d7ba9641ffaa4d7d2c19d3f3091",
+    "state": "APPROVED"
+  },
+  {
+    "id": 2,
+    "node_id": "MDE3OlB1bGxSZXF1ZXN0UmV2aWV3ODA=",
+    "user": {
+      "login": "troublemaker"
+    },
+    "body": "Here is the body for the review.",
+    "submitted_at": "2019-11-17T17:43:43Z",
+    "commit_id": "ecdd80bb57125d7ba9641ffaa4d7d2c19d3f3091",
+    "state": "CHANGES_REQUESTED"
+  },
+  {
+    "id": 3,
+    "node_id": "MDE3OlB1bGxSZXF1ZXN0UmV2aWV3ODA=",
+    "user": {
+      "login": "reviewer"
+    },
+    "body": "Here is the body for the review.",
+    "submitted_at": "2019-11-17T17:43:43Z",
+    "commit_id": "ecdd80bb57125d7ba9641ffaa4d7d2c19d3f3091",
+    "state": "COMMENTED"
+  }
+]

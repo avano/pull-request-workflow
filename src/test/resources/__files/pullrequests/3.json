@@ -1,0 +1,34 @@
+{
+  "url": "http://localhost:29999/repos/test/repo/pulls/3",
+  "number": 3,
+  "state": "open",
+  "labels": [
+    {
+      "id": 208045946,
+      "node_id": "MDU6TGFiZWwyMDgwNDU5NDY=",
+      "url": "https://api.github.com/repos/octocat/Hello-World/labels/wip",
+      "name": "WIP",
+      "description": "work in progress",
+      "color": "f29513",
+      "default": true
+    }
+  ],
+  "requested_reviewers": [
+    {
+      "login": "approved"
+    },
+    {
+      "login": "troublemaker"
+    }
+  ],
+  "merged_at": null,
+  "base": {
+    "label": "octocat:master",
+    "ref": "master"
+  },
+  "draft": false,
+  "merged": false,
+  "mergeable": true,
+  "rebaseable": true,
+  "mergeable_state": "clean"
+}

@@ -1,0 +1,7 @@
+{
+  "required_status_checks": {
+    "contexts": [
+      "travis-failing"
+    ]
+  }
+}
