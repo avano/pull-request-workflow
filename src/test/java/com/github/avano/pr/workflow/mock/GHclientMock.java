@@ -27,7 +27,7 @@ public class GHclientMock extends GHClient {
     }
 
     @Override
-    public String getParsedRepository() {
+    public String getConfiguredRepository() {
         return "test/repo";
     }
 }
