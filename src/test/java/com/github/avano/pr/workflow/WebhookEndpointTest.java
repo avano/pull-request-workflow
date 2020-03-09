@@ -16,12 +16,19 @@ import org.kohsuke.github.GHPullRequestReviewState;
 import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.message.CommitStatusMessage;
 import com.github.avano.pr.workflow.message.EventMessage;
+import com.github.avano.pr.workflow.util.Signature;
+
+import javax.inject.Inject;
+import javax.json.Json;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.StringReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -31,13 +38,24 @@ public class WebhookEndpointTest extends TestParent {
     @TestHTTPResource("/webhook")
     private URL url;
 
+    @Inject
+    Signature signature;
+
     private void sendRequest(String header, String fileName) {
+        sendRequest(header, fileName, null);
+    }
+
+    private void sendRequest(String header, String fileName, Map<String, String> headersOverride) {
         try {
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod("POST");
             con.setRequestProperty("Content-Type", "application/json");
             con.setRequestProperty("X-GitHub-Event", header);
             String json = FileUtils.readFileToString(new File("src/test/resources/__files/endpoint/" + fileName), "UTF-8");
+            con.setRequestProperty("x-hub-signature", signature.compute(Json.createReader(new StringReader(json)).readObject().toString().getBytes(StandardCharsets.UTF_8)));
+            if (headersOverride != null) {
+                headersOverride.forEach(con::setRequestProperty);
+            }
             con.setDoOutput(true);
             con.setRequestProperty("Content-Length", Integer.toString(json.length()));
             con.getOutputStream().write(json.getBytes(StandardCharsets.UTF_8));
@@ -207,5 +225,13 @@ public class WebhookEndpointTest extends TestParent {
         GHPullRequest pr = ((EventMessage) msg).get();
         assertThat(pr.getNumber()).isEqualTo(13);
         assertThat(((EventMessage) msg).getInfo(EventMessage.LABEL).toString()).isEqualTo("testLabel");
+    }
+
+    @Test
+    public void shouldIgnoreInvalidSignatureTest() {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("x-hub-signature", "sha1=asdf");
+        sendRequest("pull_request", "prUnlabeled.json", headers);
+        assertThat(lastDestination()).isNull();
     }
 }
