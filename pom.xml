@@ -25,6 +25,7 @@
 		<compiler-plugin.version>3.8.1</compiler-plugin.version>
 		<quarkus-plugin.version>1.2.1.Final</quarkus-plugin.version>
 		<surefire-plugin.version>2.22.1</surefire-plugin.version>
+		<resources-plugin.version>3.1.0</resources-plugin.version>
 	</properties>
 
 	<dependencyManagement>
@@ -118,6 +119,29 @@
 						<java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
 					</systemProperties>
 				</configuration>
+			</plugin>
+			<!-- Copy the config folder into target so that it is picked up in quarkus:dev -->
+			<plugin>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>${resources-plugin.version}</version>
+				<executions>
+					<execution>
+						<id>copy-resources</id>
+						<phase>compile</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${basedir}/target/config</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${basedir}/config</directory>
+									<filtering>true</filtering>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
