@@ -18,6 +18,8 @@ public class Configuration {
     public Optional<String> user;
     public Optional<String> token;
 
+    public String repository;
+
     public String[] approvedLabels;
     public String[] changesRequestedLabels;
     public String[] commentedLabels;
@@ -42,6 +44,10 @@ public class Configuration {
     public Optional<String> getToken() {
         return token;
     }
+
+    public String getRepository() {
+        return repository;
+    };
 
     public List<String> getApprovedLabels() {
         return Arrays.asList(approvedLabels);

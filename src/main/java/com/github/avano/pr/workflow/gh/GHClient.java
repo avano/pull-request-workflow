@@ -39,9 +39,6 @@ public class GHClient {
 
     private GitHub gitHub;
 
-    // In case of using user+token, we don't know the repository, so parse it from the first request
-    private String repository;
-
     /**
      * Gets the client instance.
      *
@@ -59,11 +56,11 @@ public class GHClient {
     }
 
     /**
-     * Returns parsed repository in form of <org/user>/<repository>.
-     * @return parsed repository
+     * Returns the configured repository in form of <org/user>/<repository>.
+     * @return repository
      */
-    public String getParsedRepository() {
-        return repository;
+    public String getConfiguredRepository() {
+        return config.getRepository();
     }
 
     /**
@@ -74,10 +71,6 @@ public class GHClient {
      * @return event class instance
      */
     public <T extends GHEventPayload> T parseEvent(JsonObject event, Class<T> clazz) {
-        if (getParsedRepository() == null) {
-            repository = event.getValue("/repository/full_name").toString().replaceAll("\"", "");
-            LOG.debug("Parsed repository {}", repository);
-        }
         try {
             return get().parseEventPayload(new StringReader(event.toString()), clazz);
         } catch (IOException e) {
@@ -92,7 +85,7 @@ public class GHClient {
      */
     public GHRepository getRepository() {
         try {
-            return get().getRepository(getParsedRepository());
+            return get().getRepository(getConfiguredRepository());
         } catch (IOException e) {
             LOG.error("Unable to get repository: " + e);
         }
@@ -106,10 +99,6 @@ public class GHClient {
      * @return list of pull requests
      */
     public List<GHPullRequest> getPullRequests(String sha) {
-        if (getParsedRepository() == null) {
-            // We don't have any event yet, so ignore this execution
-            return null;
-        }
         return getRepository().queryPullRequests().state(GHIssueState.OPEN).list().asList().stream().filter(
             pr -> sha.equals(pr.getHead().getSha())
         ).collect(Collectors.toList());
@@ -135,15 +124,11 @@ public class GHClient {
      * @return collection of required check names or null if the branch is not protected
      */
     public Collection<String> getRequiredChecks(String branch) {
-        if (getParsedRepository() == null) {
-            // We don't have any event yet, so ignore this execution
-            return null;
-        }
         try {
             return getRepository().getBranch(branch).getProtection().getRequiredStatusChecks().getContexts();
         } catch (IOException e) {
             if (!e.getMessage().contains("Branch not protected")) {
-                LOG.error("Unable to get repository: {}" + e, getParsedRepository());
+                LOG.error("Unable to get repository: {}" + e, getConfiguredRepository());
             }
         }
         return null;

@@ -31,6 +31,8 @@ data:
     config.user = <user>
     # GitHub token
     config.token = <gh token>
+    # GitHub repository
+    config.repository = <org/user>/<repository>
 
     # Labels to add when the PR was approved
     config.approved-labels = approved
