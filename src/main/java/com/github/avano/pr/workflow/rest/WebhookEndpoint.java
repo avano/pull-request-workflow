@@ -9,6 +9,7 @@ import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.gh.GHClient;
 import com.github.avano.pr.workflow.message.CommitStatusMessage;
 import com.github.avano.pr.workflow.message.EventMessage;
+import com.github.avano.pr.workflow.util.Signature;
 
 import javax.inject.Inject;
 import javax.json.JsonObject;
@@ -17,6 +18,8 @@ import javax.ws.rs.HeaderParam;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.MediaType;
+
+import java.nio.charset.StandardCharsets;
 
 /**
  * The REST endpoint which consumes the JSON GitHub events.
@@ -31,6 +34,9 @@ public class WebhookEndpoint {
     @Inject
     Bus eventBus;
 
+    @Inject
+    Signature signature;
+
     /**
      * Gets the JSON Event and forwards it to a corresponding method based on the header in the request.
      *
@@ -39,9 +45,13 @@ public class WebhookEndpoint {
     @Consumes(MediaType.APPLICATION_JSON)
     @Path("/")
     @POST
-    public void get(@HeaderParam("X-GitHub-Event") String eventType, JsonObject event) {
+    public void get(@HeaderParam("x-hub-signature") String actualSignature, @HeaderParam("X-GitHub-Event") String eventType, JsonObject event) {
         if (eventType == null) {
             LOG.warn("Missing X-GitHub-Event header, ignoring request");
+            return;
+        }
+        if (!signature.isValid(actualSignature, event.toString().getBytes(StandardCharsets.UTF_8))) {
+            LOG.warn("Signature of the request doesn't match with expected signature, ignoring request");
             return;
         }
         switch (GHEvent.valueOf(eventType.toUpperCase())) {

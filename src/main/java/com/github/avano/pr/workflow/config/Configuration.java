@@ -18,6 +18,8 @@ public class Configuration {
     public Optional<String> user;
     public Optional<String> token;
 
+    public String secret;
+
     public String repository;
 
     public String[] approvedLabels;
@@ -43,6 +45,10 @@ public class Configuration {
 
     public Optional<String> getToken() {
         return token;
+    }
+
+    public String getSecret() {
+        return secret;
     }
 
     public String getRepository() {
