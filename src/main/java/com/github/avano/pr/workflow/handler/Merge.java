@@ -1,6 +1,7 @@
 package com.github.avano.pr.workflow.handler;
 
 import org.kohsuke.github.GHLabel;
+import org.kohsuke.github.GHPerson;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHPullRequestReviewState;
 import org.kohsuke.github.GHUser;
@@ -19,6 +20,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import io.quarkus.vertx.ConsumeEvent;
@@ -120,6 +122,12 @@ public class Merge {
                 LOG.warn("PR #{}: Not merging - not mergeable", pr.getNumber());
                 return;
             }
+
+            // Assign the PR to all users who provided a review, so that it will be visible who was involved
+            Set<GHUser> reviewers = client.getReviews(pr).keySet();
+            reviewers.remove(pr.getUser());
+            LOG.info("PR #{}: Setting assignees to: {}", pr.getNumber(), reviewers.stream().map(GHPerson::getLogin).collect(Collectors.joining(", ")));
+            client.setAssignees(pr, reviewers);
 
             LOG.info("PR #{}: Merging", pr.getNumber());
             pr.merge(config.getMergeMessage(), null, config.getMergeMethod());

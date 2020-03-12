@@ -55,9 +55,6 @@ public class ReviewSubmittedTest extends TestParent {
         stubFor(WireMock.post(urlPathMatching("/repos/" + TEST_REPO + "/issues/\\d+/assignees"))
             .willReturn(created().withBody("[]")));
 
-        stubFor(WireMock.put(urlPathMatching(PR_PATCH_URL))
-            .willReturn(ok()));
-
         pr = loadPullRequest(PULL_REQUEST_ID);
         setField(pr, "user", getUsers("creator")[0]);
         setField(pr, "assignees", new GHUser[] {});
@@ -144,18 +141,18 @@ public class ReviewSubmittedTest extends TestParent {
     }
 
     @Test
-    public void shouldAddToAssigneesWhenReviewWasProvidedTest() {
-        setField(pr, "assignees", getUsers("troublemaker"));
+    public void shouldRemoveFromAssigneesWhenPRWasApprovedTest() {
+        setField(pr, "assignees", getUsers("troublemaker", "reviewer"));
 
-        reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.COMMENTED));
+        reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.APPROVED));
 
         List<LoggedRequest> requests = getRequests(PR_PATCH);
         assertThat(requests).hasSize(1);
-        assertThat(new JSONObject(requests.get(0).getBodyAsString()).getJSONArray("assignees")).containsExactlyInAnyOrder("troublemaker", "reviewer");
+        assertThat(new JSONObject(requests.get(0).getBodyAsString()).getJSONArray("assignees")).containsExactlyInAnyOrder("troublemaker");
     }
 
     @Test
-    public void shouldntAddAuthorAsAssigneeWhenHeNeedsToUpdateAndCommentsTest() {
+    public void shouldntChangeAssigneesWhenCommentedTest() {
         setField(pr, "assignees", getUsers("reviewer"));
 
         reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.COMMENTED));
