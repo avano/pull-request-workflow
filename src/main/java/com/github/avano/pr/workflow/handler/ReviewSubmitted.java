@@ -61,7 +61,14 @@ public class ReviewSubmitted {
             case APPROVED:
                 LOG.info("PR #{}: Approved by {}", pr.getNumber(), reviewEvent.getSender().getLogin());
 
-                addAsAssignee(pr, reviewEvent.getSender());
+                List<GHUser> assignees = new ArrayList<>(pr.getAssignees());
+                if (assignees.contains(reviewEvent.getSender())) {
+                    assignees.remove(reviewEvent.getSender());
+                    LOG.info("PR #{}: Removing {} from assignees", pr.getNumber(), reviewEvent.getSender().getLogin());
+                    client.setAssignees(pr, assignees);
+                } else {
+                    LOG.debug("PR #{}: {} wasn't in assignees list and provided a review", pr.getNumber(), reviewEvent.getSender().getLogin());
+                }
 
                 // Only add approved label if there are no "changes required" reviews left
                 if (!client.changesRequested(pr)) {
@@ -87,30 +94,9 @@ public class ReviewSubmitted {
             case COMMENTED:
                 LOG.info("PR #{}: Commented by {}", pr.getNumber(), reviewEvent.getSender().getLogin());
 
-                addAsAssignee(pr, reviewEvent.getSender());
-
                 addLabels.addAll(config.getCommentedLabels());
                 eventBus.publish(Bus.EDIT_LABELS, new LabelsMessage(pr, addLabels, removeLabels));
                 break;
-        }
-    }
-
-    /**
-     * Adds the sender assignee to the assignees list if he isn't already present in the list.
-     * If the PR is commented by the author, it does nothing.
-     *
-     * @param pr pull request
-     * @param user sender
-     */
-    private void addAsAssignee(GHPullRequest pr, GHUser user) {
-        List<GHUser> assignees = new ArrayList<>(pr.getAssignees());
-        // If the assignee is the author of the PR, ignore his comments
-        if (assignees.size() == 1 && assignees.get(0) == client.getAuthor(pr)) {
-            LOG.debug("PR #{}: Author added a comment to the PR, not doing anything", pr.getNumber());
-        } else if (!assignees.contains(user)) {
-            // If the reviewer was set as assignee, remove him from assignees, as he provided the review
-            assignees.add(user);
-            client.setAssignees(pr, assignees.toArray(new GHUser[0]));
         }
     }
 }

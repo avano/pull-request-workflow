@@ -11,14 +11,18 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import org.json.JSONObject;
 import org.kohsuke.github.GHPullRequest;
 
 import com.github.avano.pr.workflow.handler.Merge;
 import com.github.avano.pr.workflow.mock.TrackerMock;
 import com.github.avano.pr.workflow.util.CheckState;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 
 import javax.inject.Inject;
+
+import java.util.List;
 
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -138,6 +142,17 @@ public class MergeTest extends TestParent {
         merge.merge(pr);
 
         assertThat(wasMerged(pr)).isFalse();
+    }
+
+    @Test
+    public void shouldAssignToReviewersTest() {
+        GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
+        tracker.setCheckState(pr, PASSING_CHECK_NAME, CheckState.SUCCESS);
+        merge.merge(pr);
+
+        List<LoggedRequest> requests = getRequests(PR_PATCH);
+        assertThat(requests).hasSize(1);
+        assertThat(new JSONObject(requests.get(0).getBodyAsString()).getJSONArray("assignees")).containsExactlyInAnyOrder("approved");
     }
 
     private boolean wasMerged(GHPullRequest pr) {

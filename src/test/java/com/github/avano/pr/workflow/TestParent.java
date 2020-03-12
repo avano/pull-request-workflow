@@ -120,8 +120,13 @@ public class TestParent {
         stubFor(WireMock.patch(urlPathMatching("/repos/" + TEST_REPO + "/issues/\\d+"))
             .willReturn(ok()));
 
+        // Return empty reviewers
         stubFor(WireMock.post(urlPathMatching("/repos/" + TEST_REPO + "/pulls/\\d+/requested_reviewers"))
             .willReturn(created().withBody("[]")));
+
+        // Return OK for PR patches (assigning assignees and stuff)
+        stubFor(WireMock.put(urlPathMatching(PR_PATCH_URL))
+            .willReturn(ok()));
     }
 
     @BeforeEach
