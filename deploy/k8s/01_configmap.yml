@@ -25,12 +25,16 @@ data:
     # Set TRACE logging for this package
     quarkus.log.category."com.github.avano.pr.workflow".level=TRACE
 
-    # Auth type
+    # (token/app) Auth type
     config.auth = token
-    # Username
+    # Username if using token auth
     config.user = <user>
-    # GitHub token
+    # GitHub token if using token auth
     config.token = <gh token>
+    # App ID if using app auth
+    config.app-id = <app id>
+    # Path to private key file of the app if using app auth
+    config.key-file = <path to key file>
     # GitHub webhook secret
     config.secret = <gh secret>
     # GitHub repository

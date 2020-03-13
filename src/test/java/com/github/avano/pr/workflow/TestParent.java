@@ -19,7 +19,7 @@ import org.junit.jupiter.api.TestInfo;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHUser;
 
-import com.github.avano.pr.workflow.gh.GHClient;
+import com.github.avano.pr.workflow.mock.GHClientMock;
 import com.github.avano.pr.workflow.util.Invocation;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -50,9 +50,8 @@ public class TestParent {
     public static final String PR_PATCH_URL = "/repos/" + TEST_REPO + "/issues/\\d+";
     public static final RequestPatternBuilder PR_PATCH = WireMock.patchRequestedFor(urlPathMatching(PR_PATCH_URL));
 
-
     @Inject
-    GHClient client;
+    GHClientMock client;
 
     @Inject
     EventBus bus;
@@ -60,13 +59,11 @@ public class TestParent {
     protected static List<Invocation> busInvocations = Collections.synchronizedList(new ArrayList<>());
     protected static WireMockServer server;
 
-    private Consumer<DeliveryContext<Object>> testInterceptor = dc -> {
-        busInvocations.add(new Invocation(dc.message().address(), dc.message().body()));
-    };
+    private Consumer<DeliveryContext<Object>> testInterceptor = dc -> busInvocations.add(new Invocation(dc.message().address(), dc.message().body()));
 
     protected GHPullRequest loadPullRequest(int id) {
         try {
-            return client.get().getRepository(TEST_REPO).getPullRequest(id);
+            return client.getRepository().getPullRequest(id);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -83,6 +80,10 @@ public class TestParent {
     @BeforeEach
     public void setup() {
         bus.addInboundInterceptor(testInterceptor);
+
+        if (!client.isInitialized()) {
+            client.init(-1);
+        }
 
         // Repository object Json
         stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO))

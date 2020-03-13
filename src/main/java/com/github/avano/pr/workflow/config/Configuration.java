@@ -2,6 +2,7 @@ package com.github.avano.pr.workflow.config;
 
 import org.kohsuke.github.GHPullRequest;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,8 @@ public class Configuration {
 
     public Optional<String> user;
     public Optional<String> token;
+    public Optional<Long> appId;
+    public Optional<String> keyFile;
 
     public String secret;
 
@@ -47,13 +50,21 @@ public class Configuration {
         return token;
     }
 
+    public Optional<Long> getAppId() {
+        return appId;
+    }
+
+    public Optional<String> getKeyFile() {
+        return keyFile;
+    }
+
     public String getSecret() {
         return secret;
     }
 
     public String getRepository() {
         return repository;
-    };
+    }
 
     public List<String> getApprovedLabels() {
         return Arrays.asList(approvedLabels);
@@ -122,6 +133,20 @@ public class Configuration {
             }
             if (!getToken().isPresent()) {
                 throw new ConfigurationException("Missing value for config.token when using " + AuthMethod.TOKEN + " auth method");
+            }
+        } else {
+            if (!getAppId().isPresent()) {
+                throw new ConfigurationException("Missing value for config.app-id when using " + AuthMethod.APP + " auth method");
+            }
+            if (!getKeyFile().isPresent()) {
+                throw new ConfigurationException("Missing value for config.key-file when using " + AuthMethod.APP + " auth method");
+            }
+            final File keyFile = new File(getKeyFile().get());
+            if (!keyFile.exists()) {
+                throw new ConfigurationException("Key file specified in config.key-file doesn't exist");
+            }
+            if (!keyFile.canRead()) {
+                throw new ConfigurationException("Can't read key file specified in config.key-file");
             }
         }
     }

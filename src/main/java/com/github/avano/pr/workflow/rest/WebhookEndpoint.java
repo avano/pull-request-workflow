@@ -54,6 +54,16 @@ public class WebhookEndpoint {
             LOG.warn("Signature of the request doesn't match with expected signature, ignoring request");
             return;
         }
+
+        // JWT tokens used in app auth are for max 10 minutes, so if the request contains installation, refresh it every time
+        if (event.containsKey("installation")) {
+            client.init(event.getJsonObject("installation").getJsonNumber("id").longValue());
+        } else {
+            if (!client.isInitialized()) {
+                client.init(-1);
+            }
+        }
+
         switch (GHEvent.valueOf(eventType.toUpperCase())) {
             case CHECK_RUN:
                 handleCheckRun(event);
