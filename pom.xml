@@ -16,6 +16,8 @@
 
 		<quarkus.platform.version>1.2.1.Final</quarkus.platform.version>
 		<github.api.version>1.108</github.api.version>
+		<bouncycastle.version>1.64</bouncycastle.version>
+		<jjwt.version>0.11.1</jjwt.version>
 
 		<wiremock.version>2.26.3</wiremock.version>
 		<assertj.version>3.15.0</assertj.version>
@@ -65,6 +67,28 @@
 			<groupId>org.kohsuke</groupId>
 			<artifactId>github-api</artifactId>
 			<version>${github.api.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcpkix-jdk15on</artifactId>
+			<version>${bouncycastle.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-api</artifactId>
+			<version>${jjwt.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-impl</artifactId>
+			<version>${jjwt.version}</version>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>io.jsonwebtoken</groupId>
+			<artifactId>jjwt-jackson</artifactId>
+			<version>${jjwt.version}</version>
+			<scope>runtime</scope>
 		</dependency>
 
 		<dependency>

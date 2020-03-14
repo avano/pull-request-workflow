@@ -1,5 +1,11 @@
 package com.github.avano.pr.workflow.gh;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMKeyPair;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
+import org.kohsuke.github.GHAppInstallation;
+import org.kohsuke.github.GHAppInstallationToken;
 import org.kohsuke.github.GHEventPayload;
 import org.kohsuke.github.GHIssueState;
 import org.kohsuke.github.GHPerson;
@@ -8,6 +14,7 @@ import org.kohsuke.github.GHPullRequestReviewState;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
+import org.kohsuke.github.GitHubBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,15 +24,25 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.json.JsonObject;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.StringReader;
+import java.security.PrivateKey;
+import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import io.jsonwebtoken.JwtBuilder;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 
 /**
  * Wrapper around GitHub API client + some convenient helper methods.
@@ -37,26 +54,43 @@ public class GHClient {
     @Inject
     Configuration config;
 
-    private GitHub gitHub;
+    protected GitHub gitHub;
 
     /**
-     * Gets the client instance.
+     * Checks if the client is initialized.
      *
-     * @return client instance
+     * @return true/false
      */
-    public GitHub get() {
-        if (gitHub == null) {
-            try {
+    public boolean isInitialized() {
+        return gitHub != null;
+    }
+
+    /**
+     * Inits the client based on the installation id. If the installation id is present, app auth is used, token otherwise.
+     *
+     * @param installationId installation id parsed from the event, -1 if not present
+     */
+    public void init(long installationId) {
+        try {
+            LOG.debug("Initializing GitHub client with installation id {}", installationId);
+            if (installationId == -1) {
                 gitHub = GitHub.connect(config.getUser().get(), config.getToken().get());
-            } catch (IOException e) {
-                throw new RuntimeException("Unable to create GitHub instance", e);
+            } else {
+                gitHub = new GitHubBuilder().withJwtToken(createJWTToken()).build();
+                GHAppInstallation appInstallation = gitHub.getApp().getInstallationById(installationId);
+                GHAppInstallationToken appInstallationToken = appInstallation
+                    .createToken(appInstallation.getPermissions())
+                    .create();
+                gitHub = new GitHubBuilder().withAppInstallationToken(appInstallationToken.getToken()).build();
             }
+        } catch (IOException e) {
+            throw new RuntimeException("Unable to create GitHub client instance", e);
         }
-        return gitHub;
     }
 
     /**
      * Returns the configured repository in form of <org/user>/<repository>.
+     *
      * @return repository
      */
     public String getConfiguredRepository() {
@@ -72,7 +106,7 @@ public class GHClient {
      */
     public <T extends GHEventPayload> T parseEvent(JsonObject event, Class<T> clazz) {
         try {
-            return get().parseEventPayload(new StringReader(event.toString()), clazz);
+            return gitHub.parseEventPayload(new StringReader(event.toString()), clazz);
         } catch (IOException e) {
             LOG.error("Unable to parse event payload: " + e);
         }
@@ -81,11 +115,12 @@ public class GHClient {
 
     /**
      * Gets the repository object.
+     *
      * @return repository
      */
     public GHRepository getRepository() {
         try {
-            return get().getRepository(getConfiguredRepository());
+            return gitHub.getRepository(getConfiguredRepository());
         } catch (IOException e) {
             LOG.error("Unable to get repository: " + e);
         }
@@ -106,6 +141,7 @@ public class GHClient {
 
     /**
      * Gets the requested reviewers list for given PR.
+     *
      * @param pr pull request instance
      * @return list of reviewers
      */
@@ -120,6 +156,7 @@ public class GHClient {
 
     /**
      * Gets the required check names for given branch if it is protected.
+     *
      * @param branch branch name
      * @return collection of required check names or null if the branch is not protected
      */
@@ -136,6 +173,7 @@ public class GHClient {
 
     /**
      * Gets the reviews for given PR. User can review multiple times, so for each user it returns the latest review.
+     *
      * @param pr pull request instance
      * @return map with the user login as key and last review state as value
      */
@@ -154,6 +192,7 @@ public class GHClient {
 
     /**
      * Returns if the changes were requested on given PR.
+     *
      * @param pr pull request instance
      * @return true/false
      */
@@ -163,6 +202,7 @@ public class GHClient {
 
     /**
      * Sets the given users as assignees of the given PR.
+     *
      * @param pr pull request
      * @param users users to assign
      */
@@ -178,6 +218,7 @@ public class GHClient {
 
     /**
      * Sets the given users as assignees of the given PR.
+     *
      * @param pr pull request
      * @param users users to assign
      */
@@ -187,6 +228,7 @@ public class GHClient {
 
     /**
      * Requests the review from the given users.
+     *
      * @param pr pull request
      * @param users users to request review from
      */
@@ -202,6 +244,7 @@ public class GHClient {
 
     /**
      * Gets the author of the PR.
+     *
      * @param pr pull request
      * @return GHUser representation of the author
      */
@@ -212,5 +255,46 @@ public class GHClient {
             LOG.error("PR #{}: Unable to get author: " + e, pr.getNumber());
         }
         return null;
+    }
+
+    /**
+     * Loads the private key from specified file.
+     *
+     * @return {@link java.security.PrivateKey} instance
+     */
+    private PrivateKey loadKey() {
+        try {
+            Security.addProvider(new BouncyCastleProvider());
+
+            PEMParser pemParser = new PEMParser(new InputStreamReader(new FileInputStream(new File(config.getKeyFile().get()))));
+            PEMKeyPair keyPair = (PEMKeyPair) pemParser.readObject();
+            JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+            return converter.getPrivateKey(keyPair.getPrivateKeyInfo());
+        } catch (Exception e) {
+            throw new RuntimeException("Unable to load key: " + config.getKeyFile() + ": " + e);
+        }
+    }
+
+    /**
+     * Creates the JWT token for given application id signed by the specified private key.
+     *
+     * @return JWT token
+     */
+    private String createJWTToken() {
+        long expiration = 600000L;
+        //The JWT signature algorithm we will be using to sign the token
+        SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.RS256;
+
+        long nowMillis = System.currentTimeMillis();
+
+        JwtBuilder builder = Jwts.builder()
+            .setIssuedAt(new Date(nowMillis))
+            .setIssuer(config.getAppId().get() + "")
+            .signWith(loadKey(), signatureAlgorithm);
+
+        builder.setExpiration(new Date(nowMillis + expiration));
+
+        //Builds the JWT and serializes it to a compact, URL-safe string
+        return builder.compact();
     }
 }

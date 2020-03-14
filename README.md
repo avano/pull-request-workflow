@@ -12,7 +12,7 @@ On the `PR update`, previous reviews are `dismissed` and `rerequested` from all 
 
 Based on the configuration, if the `PR is approved` and it `fulfills all other conditions` (not draft, not wip, passing required checks, etc.) the `PR is automatically merged`.
 
-![Image of Yaktocat](./example.png) 
+![example](./example.png) 
 
 ## Configuration
 
@@ -24,7 +24,31 @@ For more info about overriding the configuration at runtime, refer to the [quark
 
 ### GitHub permissions
 
-The app reacts to the selected events emitted from GitHub using webhooks. To configure your repository to send events, go to `Settings` -> `Webhooks` and add a new webhook:
+The app reacts to the selected events emitted from GitHub using webhooks. 
+
+If you are using GitHub app, you need to configure the webhooks in the app itself - go to `App settings`:
+
+In `General`, setup `Webhook`:
+
+- `Webhook URL` - url to the webhook endpoint of a running instance of this app
+- `Webhook secret` - use any secret
+
+in `Permissions & events`:
+
+- `Repository permissions`
+   - `Checks` - read & write
+   - `Contents` - read
+   - `Issues` - read & write
+   - `Metadata` - read
+   - `Pull requests` - read & write
+   - `Commit statuses` - read & write
+- `Subscribe to events`
+   - `Check run`
+   - `Pull request`
+   - `Pull request review`
+   - `Status`
+
+On the other hand, if you want to use account + token combination, you need to set up your repository to send the events: go to `Settings` -> `Webhooks` and add a new webhook:
 
 - `Payload URL` - url to the webhook endpoint of a running instance of this app
 - `Content Type` - use `application/json`
