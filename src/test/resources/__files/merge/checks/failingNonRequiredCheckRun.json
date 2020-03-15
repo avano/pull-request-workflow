@@ -1,0 +1,23 @@
+{
+  "total_count": 3,
+  "check_runs": [
+    {
+      "head_sha": "asdfgh",
+      "status": "completed",
+      "conclusion": "success",
+      "name": "Travis CI - Pull Request 1"
+    },
+    {
+      "head_sha": "asdfgh",
+      "status": "completed",
+      "conclusion": "success",
+      "name": "Travis CI - Pull Request 2"
+    },
+    {
+      "head_sha": "asdfgh",
+      "status": "completed",
+      "conclusion": "failed",
+      "name": "Travis CI - Pull Request 3"
+    }
+  ]
+}

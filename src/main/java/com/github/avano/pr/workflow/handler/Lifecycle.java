@@ -11,7 +11,6 @@ import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.gh.GHClient;
 import com.github.avano.pr.workflow.message.EventMessage;
 import com.github.avano.pr.workflow.message.LabelsMessage;
-import com.github.avano.pr.workflow.track.Tracker;
 
 import javax.inject.Inject;
 
@@ -36,41 +35,7 @@ public class Lifecycle {
     Bus eventBus;
 
     @Inject
-    Tracker tracker;
-
-    @Inject
     Configuration config;
-
-    /**
-     * Handles the <a href="https://developer.github.com/v3/activity/events/types/#pullrequestevent">pull request</a> opened event.
-     * <p>
-     * Starts tracking the PR in internal tracker if not already tracked.
-     *
-     * @param prEvent {@link EventMessage} instance
-     */
-    @ConsumeEvent(Bus.PR_OPENED)
-    public void handlePrOpened(EventMessage prEvent) {
-        LOG.trace(Bus.EVENT_RECEIVED_MESSAGE + Bus.PR_OPENED);
-        tracker.init(prEvent.get());
-    }
-
-    /**
-     * Handles the <a href="https://developer.github.com/v3/activity/events/types/#pullrequestevent">pull request</a> closed event.
-     * <p>
-     * If the PR was merged + closed, it removes the PR from internal tracking, if the PR was closed without being merged, it does nothing.
-     *
-     * @param prEvent {@link EventMessage} instance
-     */
-    @ConsumeEvent(Bus.PR_CLOSED)
-    public void handlePrClosed(EventMessage prEvent) {
-        LOG.trace(Bus.EVENT_RECEIVED_MESSAGE + Bus.PR_CLOSED);
-        GHPullRequest pr = prEvent.get();
-        if (pr.getMergedAt() != null) {
-            tracker.remove(pr);
-        } else {
-            LOG.info("PR #{}: Closed without being merged", pr.getNumber());
-        }
-    }
 
     /**
      * Handles the <a href="https://developer.github.com/v3/activity/events/types/#pullrequestevent">pull request</a> reopened event.
@@ -113,9 +78,6 @@ public class Lifecycle {
                     LOG.error("PR #{}: Unable to dismiss review: " + e, pr.getNumber());
                 }
             });
-
-        // Clear all checks statuses
-        tracker.clearChecks(pr);
 
         // Re-apply labels to current state
         List<String> addLabels = new ArrayList<>();

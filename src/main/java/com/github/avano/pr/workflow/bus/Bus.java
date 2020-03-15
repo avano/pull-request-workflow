@@ -35,7 +35,6 @@ public class Bus {
 
     public static final String STATUS_CHANGED = "status.changed";
 
-    public static final String CHECK_RUN_CREATED = "run.created";
     public static final String CHECK_RUN_FINISHED = "run.finished";
 
     public static final String EVENT_PUBLISHED_MESSAGE = "Event published to destination: ";

@@ -6,6 +6,7 @@ import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.kohsuke.github.GHAppInstallation;
 import org.kohsuke.github.GHAppInstallationToken;
+import org.kohsuke.github.GHCommitStatus;
 import org.kohsuke.github.GHEventPayload;
 import org.kohsuke.github.GHIssueState;
 import org.kohsuke.github.GHPerson;
@@ -165,7 +166,7 @@ public class GHClient {
             return getRepository().getBranch(branch).getProtection().getRequiredStatusChecks().getContexts();
         } catch (IOException e) {
             if (!e.getMessage().contains("Branch not protected")) {
-                LOG.error("Unable to get repository: {}" + e, getConfiguredRepository());
+                LOG.error("Unable to get repository: {}: " + e, getConfiguredRepository());
             }
         }
         return null;
@@ -255,6 +256,29 @@ public class GHClient {
             LOG.error("PR #{}: Unable to get author: " + e, pr.getNumber());
         }
         return null;
+    }
+
+    /**
+     * Returns the map of checkname-checkstatus for given pull request's HEAD sha for both check-runs and commit statuses.
+     * @param pr pull request
+     * @return map of checkname-checkstatus
+     */
+    public Map<String, String> getChecks(GHPullRequest pr) {
+        Map<String, String> checks = new HashMap<>();
+        final String sha = pr.getHead().getSha();
+        try {
+            pr.getRepository().getCheckRuns(sha).forEach(cr -> checks.put(cr.getName(), cr.getConclusion()));
+            Map<String, String> statuses = new HashMap<>();
+            // Statuses are returned in newest-first order, so revert it and get last state of each status
+            List<GHCommitStatus> ghCommitStatuses = pr.getRepository().listCommitStatuses(sha).toList();
+            for (int i = ghCommitStatuses.size() - 1; i >= 0; i--) {
+                statuses.put(ghCommitStatuses.get(i).getContext(), ghCommitStatuses.get(i).getState().name());
+            }
+            checks.putAll(statuses);
+        } catch (IOException e) {
+            LOG.error("Unable to get checkruns or statuses: " + e);
+        }
+        return checks;
     }
 
     /**

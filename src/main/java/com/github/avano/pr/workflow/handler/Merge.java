@@ -12,8 +12,6 @@ import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.ApprovalStrategy;
 import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.gh.GHClient;
-import com.github.avano.pr.workflow.track.Tracker;
-import com.github.avano.pr.workflow.util.CheckState;
 
 import javax.inject.Inject;
 
@@ -36,9 +34,6 @@ public class Merge {
 
     @Inject
     GHClient client;
-
-    @Inject
-    Tracker tracker;
 
     /**
      * Merges the PR if all prerequisities are fulfilled.
@@ -70,23 +65,17 @@ public class Merge {
             final String targetBranch = pr.getBase().getRef();
             Collection<String> requiredChecks = client.getRequiredChecks(targetBranch);
             if (requiredChecks != null && !requiredChecks.isEmpty()) {
+                LOG.info("PR #{}: Required checks: {}", pr.getNumber(), String.join(", ", requiredChecks));
                 final StringBuilder logMsg = new StringBuilder("PR #").append(pr.getNumber()).append(": Checks - ");
-                boolean proceed = true;
-                Map<String, CheckState> prChecks = tracker.getChecks(pr);
-                for (String check : requiredChecks) {
-                    // If there is no tracking information, either the merge is called really fast, or the check was done before this app started
-                    // and we don't have the corresponding event, so there is nothing we can do about it, so ignore it
-                    // If it is a required check, the PR won't be mergeable, so it will be caught later
-                    if (prChecks.get(check) == null) {
-                        logMsg.append("[").append(check).append(": unknown], ");
-                    } else {
-                        logMsg.append("[").append(check).append(": ").append(prChecks.get(check).name()).append("], ");
-                        proceed = proceed && (prChecks.get(check) == CheckState.SUCCESS);
+                client.getChecks(pr).forEach((name, result) -> {
+                    logMsg.append("[").append(name).append(": ").append(result).append("], ");
+                    if ("success".equalsIgnoreCase(result)) {
+                        requiredChecks.remove(name);
                     }
-                }
+                });
 
                 LOG.info(logMsg.substring(0, logMsg.length() - 2));
-                if (!proceed) {
+                if (!requiredChecks.isEmpty()) {
                     LOG.info("PR #{}: Not merging - some of the required checks did not pass", pr.getNumber());
                     return;
                 }
@@ -126,7 +115,8 @@ public class Merge {
             // Assign the PR to all users who provided a review, so that it will be visible who was involved
             Set<GHUser> reviewers = client.getReviews(pr).keySet();
             reviewers.remove(pr.getUser());
-            LOG.info("PR #{}: Setting assignees to: {}", pr.getNumber(), reviewers.stream().map(GHPerson::getLogin).collect(Collectors.joining(", ")));
+            LOG.info("PR #{}: Setting assignees to: {}", pr.getNumber(),
+                reviewers.stream().map(GHPerson::getLogin).collect(Collectors.joining(", ")));
             client.setAssignees(pr, reviewers);
 
             LOG.info("PR #{}: Merging", pr.getNumber());

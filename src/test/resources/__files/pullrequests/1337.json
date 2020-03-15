@@ -26,6 +26,9 @@
     "label": "octocat:master",
     "ref": "master"
   },
+  "head": {
+    "sha": "asdfgh"
+  },
   "draft": false,
   "merged": false,
   "mergeable": true,

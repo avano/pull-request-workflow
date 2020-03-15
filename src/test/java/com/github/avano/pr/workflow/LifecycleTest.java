@@ -20,7 +20,6 @@ import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.handler.Lifecycle;
 import com.github.avano.pr.workflow.message.EventMessage;
 import com.github.avano.pr.workflow.message.LabelsMessage;
-import com.github.avano.pr.workflow.mock.TrackerMock;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 
@@ -41,9 +40,6 @@ public class LifecycleTest extends TestParent {
     Lifecycle lifecycle;
 
     @Inject
-    TrackerMock tracker;
-
-    @Inject
     Configuration config;
 
     private GHPullRequest pr;
@@ -62,41 +58,12 @@ public class LifecycleTest extends TestParent {
         // Override default mapping
         stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/" + PR_NO_REVIEWERS_ID + "/reviews"))
             .willReturn(ok().withBody("[]")));
-
-        tracker.cleanUp();
     }
 
     @BeforeEach
     public void loadDefaultPr() {
         pr = getInstance(GHPullRequest.class, fields("number", PULL_REQUEST_ID,
             "owner", getInstance(GHRepository.class, fields("full_name", TEST_REPO))));
-    }
-
-    @Test
-    public void shouldStartTrackingOpenedPrTest() {
-        lifecycle.handlePrOpened(new EventMessage(pr));
-        assertThat(tracker.getTrackers()).hasSize(1);
-        assertThat(tracker.getTrackers().get(pr.getRepository().getFullName())).containsKey(pr.getNumber());
-    }
-
-    @Test
-    public void shouldStopTrackingMergedPrTest() {
-        tracker.init(pr);
-        assertThat(tracker.getTrackers()).hasSize(1);
-        assertThat(tracker.getTrackers().get(pr.getRepository().getFullName())).containsKey(pr.getNumber());
-        setField(pr, "merged_at", "2011-01-26T19:01:12Z");
-        lifecycle.handlePrClosed(new EventMessage(pr));
-        assertThat(tracker.getTrackers().get(pr.getRepository().getFullName())).hasSize(0);
-    }
-
-    @Test
-    public void shouldntStopTrackingUnmergedPrTest() {
-        tracker.init(pr);
-        assertThat(tracker.getTrackers()).hasSize(1);
-        assertThat(tracker.getTrackers().get(pr.getRepository().getFullName())).containsKey(pr.getNumber());
-        lifecycle.handlePrClosed(new EventMessage(pr));
-        assertThat(tracker.getTrackers()).hasSize(1);
-        assertThat(tracker.getTrackers().get(pr.getRepository().getFullName())).containsKey(pr.getNumber());
     }
 
     @Test

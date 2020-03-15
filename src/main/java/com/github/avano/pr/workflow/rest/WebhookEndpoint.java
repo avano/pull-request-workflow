@@ -96,12 +96,6 @@ public class WebhookEndpoint {
         EventMessage prEvent = new EventMessage(prGhEvent.getPullRequest()).withSender(prGhEvent.getSender());
 
         switch (event.getString("action")) {
-            case "opened":
-                eventBus.publish(Bus.PR_OPENED, prEvent);
-                break;
-            case "closed":
-                eventBus.publish(Bus.PR_CLOSED, prEvent);
-                break;
             case "reopened":
                 eventBus.publish(Bus.PR_REOPENED, prEvent);
                 break;
@@ -163,19 +157,10 @@ public class WebhookEndpoint {
         }
 
         EventMessage checkRunEvent = new EventMessage(checkRunGhEvent.getCheckRun());
-        switch (event.getString("action")) {
-            case "completed":
-                eventBus.publish(Bus.CHECK_RUN_FINISHED, checkRunEvent);
-                break;
-            case "created":
-                eventBus.publish(Bus.CHECK_RUN_CREATED, checkRunEvent);
-                break;
-            case "rerequested":
-                // Rerequested also only puts the check run in the in_progress state, so send it to check_run_created destination with additional info
-                eventBus.publish(Bus.CHECK_RUN_CREATED, checkRunEvent.withAdditionalInfo(EventMessage.INFO_CHECK_RUN_ACTION, "rerequested"));
-                break;
-            default:
-                LOG.warn("Unknown check run action: \"{}\"", event.getString("action"));
+        if ("completed".equals(event.getString("action"))) {
+            eventBus.publish(Bus.CHECK_RUN_FINISHED, checkRunEvent);
+        } else {
+            LOG.debug("Ignoring check run action: \"{}\"", event.getString("action"));
         }
     }
 
