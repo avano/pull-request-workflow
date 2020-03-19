@@ -14,7 +14,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
 
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHUser;
@@ -40,8 +39,8 @@ import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
-import io.vertx.axle.core.eventbus.DeliveryContext;
-import io.vertx.axle.core.eventbus.EventBus;
+import io.vertx.mutiny.core.eventbus.DeliveryContext;
+import io.vertx.mutiny.core.eventbus.EventBus;
 
 public class TestParent {
     public static final String TEST_REPO = "test/repo";
@@ -128,13 +127,6 @@ public class TestParent {
         // Return OK for PR patches (assigning assignees and stuff)
         stubFor(WireMock.put(urlPathMatching(PR_PATCH_URL))
             .willReturn(ok()));
-    }
-
-    @BeforeEach
-    public void printTestName(TestInfo info) {
-        if (info.getTestMethod().isPresent()) {
-            System.out.println("### Running " + info.getTestMethod().get());
-        }
     }
 
     @AfterEach
