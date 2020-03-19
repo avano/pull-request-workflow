@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 
-import io.vertx.axle.core.eventbus.EventBus;
+import io.vertx.mutiny.core.eventbus.EventBus;
 
 /**
  * Wrapper around Vertx Eventbus + constants for destinations.
