@@ -2,24 +2,32 @@ package com.github.avano.pr.workflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.json.JSONObject;
 import org.kohsuke.github.GHPullRequest;
 
+import com.github.avano.pr.workflow.bus.Bus;
+import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.handler.Merge;
+import com.github.avano.pr.workflow.message.ConflictMessage;
+import com.github.avano.pr.workflow.util.Invocation;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 
 import javax.inject.Inject;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -33,6 +41,14 @@ public class MergeTest extends TestParent {
 
     @Inject
     Merge merge;
+
+    @Override
+    @BeforeEach
+    public void setup() {
+        super.setup();
+        stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/pulls?state=open"))
+            .willReturn(ok().withBody("[]")));
+    }
 
     @Test
     public void shouldMergeTest() {
@@ -221,6 +237,51 @@ public class MergeTest extends TestParent {
         List<LoggedRequest> requests = getRequests(PR_PATCH);
         assertThat(requests).hasSize(1);
         assertThat(new JSONObject(requests.get(0).getBodyAsString()).getJSONArray("assignees")).containsExactlyInAnyOrder("approved");
+    }
+
+    @Test
+    public void shouldCheckConflictsWhenThereArePrOpenedTest() {
+        stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/pulls?state=open"))
+            .willReturn(ok().withBodyFile("merge/conflict/twoMergeable.json")));
+        GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
+        merge.merge(pr);
+
+        assertThat(wasMerged(pr)).isTrue();
+        List<Invocation> conflictInvocations = busInvocations.stream()
+            .filter(i -> Bus.PR_CHECK_CONFLICT.equals(i.getDestination())).collect(Collectors.toList());
+        assertThat(conflictInvocations).hasSize(1);
+    }
+
+    @Test
+    public void shouldNotCheckConflictsWhenThereAreNoPrOpenedTest() {
+        stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/pulls?state=open"))
+            .willReturn(ok().withBody("[]")));
+        GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
+        merge.merge(pr);
+
+        assertThat(wasMerged(pr)).isTrue();
+        assertThat(busInvocations.stream().filter(i -> Bus.PR_CHECK_CONFLICT.equals(i.getDestination())).findAny()).isNotPresent();
+    }
+
+    @Test
+    public void shouldIgnoreNonMergeablePrForConflictCheckTest() {
+        stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/pulls?state=open"))
+            .willReturn(ok().withBodyFile("merge/conflict/oneNotMergeable.json")));
+        stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/20"))
+            .willReturn(ok().withBodyFile("merge/conflict/20_ok.json")));
+        stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/21"))
+            .willReturn(ok().withBodyFile("merge/conflict/21_ok.json")));
+        stubFor(WireMock.post(urlPathMatching("/repos/" + TEST_REPO + "/issues/\\d+/comments"))
+            .willReturn(aResponse().withStatus(201).withBody("{}")));
+
+        GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
+        merge.merge(pr);
+
+        assertThat(wasMerged(pr)).isTrue();
+        List<Invocation> conflictInvocations = busInvocations.stream()
+            .filter(i -> Bus.PR_CHECK_CONFLICT.equals(i.getDestination())).collect(Collectors.toList());
+        assertThat(conflictInvocations).hasSize(1);
+        assertThat(((ConflictMessage)conflictInvocations.get(0).getMessage()).getOpenPullRequests()).hasSize(1);
     }
 
     private boolean wasMerged(GHPullRequest pr) {

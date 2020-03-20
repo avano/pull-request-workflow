@@ -1,0 +1,16 @@
+[
+  {
+    "url": "http://localhost:29999/repos/test/repo/pulls/20",
+    "number": 20,
+    "state": "open",
+    "mergeable": true,
+    "mergeable_state": "clean"
+  },
+  {
+    "url": "http://localhost:29999/repos/test/repo/pulls/21",
+    "number": 21,
+    "state": "open",
+    "mergeable": true,
+    "mergeable_state": "clean"
+  }
+]

@@ -82,14 +82,7 @@ public class ReviewSubmitted {
                 break;
             case CHANGES_REQUESTED:
                 LOG.info("PR #{}: Changes requested by {}", pr.getNumber(), reviewEvent.getSender().getLogin());
-
-                addLabels.addAll(config.getChangesRequestedLabels());
-                removeLabels.addAll(config.getApprovedLabels());
-                removeLabels.addAll(config.getReviewRequestedLabels());
-                eventBus.publish(Bus.EDIT_LABELS, new LabelsMessage(pr, addLabels, removeLabels));
-
-                // Set the assignee back to the author of the PR, because he needs to update the PR
-                client.setAssignees(pr, client.getAuthor(pr));
+                client.assignToAuthor(pr);
                 break;
             case COMMENTED:
                 LOG.info("PR #{}: Commented by {}", pr.getNumber(), reviewEvent.getSender().getLogin());
