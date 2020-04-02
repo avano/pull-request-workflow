@@ -66,13 +66,10 @@ public class WebhookEndpointTest extends TestParent {
     }
 
     @Test
-    public void shouldSendCheckRunCreatedMessageTest() {
+    public void shouldIgnoreCheckRunCreatedTest() {
         sendRequest("check_run", "checkRunCreated.json");
-        assertThat(lastDestination()).isEqualTo(Bus.CHECK_RUN_CREATED);
-        Object msg = lastMessage();
-        assertThat(msg).isInstanceOf(EventMessage.class);
-        GHCheckRun checkRun = ((EventMessage) msg).get();
-        assertThat(checkRun.getName()).isEqualTo("Octocoders-linter-created");
+        waitForInvocations(1);
+        assertThat(busInvocations.isEmpty());
     }
 
     @Test
@@ -83,16 +80,6 @@ public class WebhookEndpointTest extends TestParent {
         assertThat(msg).isInstanceOf(EventMessage.class);
         GHCheckRun checkRun = ((EventMessage) msg).get();
         assertThat(checkRun.getName()).isEqualTo("Octocoders-linter-completed");
-    }
-
-    @Test
-    public void shouldSendCheckRunRerequestedMessageTest() {
-        sendRequest("check_run", "checkRunRerequested.json");
-        assertThat(lastDestination()).isEqualTo(Bus.CHECK_RUN_CREATED);
-        Object msg = lastMessage();
-        assertThat(msg).isInstanceOf(EventMessage.class);
-        GHCheckRun checkRun = ((EventMessage) msg).get();
-        assertThat(checkRun.getName()).isEqualTo("Octocoders-linter-rerequested");
     }
 
     @Test
@@ -131,28 +118,6 @@ public class WebhookEndpointTest extends TestParent {
     public void shouldSendMessageForReviewDismissedTest() {
         sendRequest("pull_request_review", "reviewDismissed.json");
         assertThat(lastDestination()).isNull();
-    }
-
-    @Test
-    public void shouldSendPrOpenedMessageTest() {
-        sendRequest("pull_request", "prOpened.json");
-        assertThat(lastDestination()).isEqualTo(Bus.PR_OPENED);
-        Object msg = lastMessage();
-        assertThat(msg).isInstanceOf(EventMessage.class);
-        GHPullRequest pr = ((EventMessage) msg).get();
-        assertThat(pr.getNumber()).isEqualTo(27);
-        assertThat(((EventMessage) msg).getSender().getLogin()).isEqualTo("Codertocat-opened");
-    }
-
-    @Test
-    public void shouldSendPrClosedMessageTest() {
-        sendRequest("pull_request", "prClosed.json");
-        assertThat(lastDestination()).isEqualTo(Bus.PR_CLOSED);
-        Object msg = lastMessage();
-        assertThat(msg).isInstanceOf(EventMessage.class);
-        GHPullRequest pr = ((EventMessage) msg).get();
-        assertThat(pr.getNumber()).isEqualTo(17);
-        assertThat(((EventMessage) msg).getSender().getLogin()).isEqualTo("Codertocat-closed");
     }
 
     @Test

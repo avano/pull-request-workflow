@@ -1,0 +1,18 @@
+[
+  {
+    "state": "success",
+    "context": "Jenkins PR build 2"
+  },
+  {
+    "state": "pending",
+    "context": "Jenkins PR build 2"
+  },
+  {
+    "state": "success",
+    "context": "Jenkins PR build 1"
+  },
+  {
+    "state": "pending",
+    "context": "Jenkins PR build 1"
+  }
+]

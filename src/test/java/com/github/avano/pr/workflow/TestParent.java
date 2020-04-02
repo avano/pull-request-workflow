@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.created;
 import static com.github.tomakehurst.wiremock.client.WireMock.ok;
+import static com.github.tomakehurst.wiremock.client.WireMock.status;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
@@ -108,9 +109,9 @@ public class TestParent {
         stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/branches/master"))
             .willReturn(ok().withBodyFile("merge/checks/branchProtection.json")));
 
-        // For most of the tests, use passing the check
+        // For most of the tests, don't use any required check
         stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/branches/master/protection"))
-            .willReturn(ok().withBodyFile("merge/checks/passingCheckOnly.json")));
+            .willReturn(status(404).withBody("Branch not protected")));
 
         // By default all PRs are approved
         stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/\\d+/reviews"))

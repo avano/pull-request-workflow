@@ -1,0 +1,8 @@
+{
+  "required_status_checks": {
+    "contexts": [
+      "Travis CI - Pull Request 1",
+      "Travis CI - Pull Request 2"
+    ]
+  }
+}
