@@ -26,6 +26,8 @@ public class Bus {
 
     public static final String PR_MERGE = "pr.merge";
 
+    public static final String PR_CHECK_CONFLICT = "pr.conflict";
+
     public static final String PR_UNLABELED = "pr.unlabeled";
     public static final String EDIT_LABELS = "pr.labels";
 

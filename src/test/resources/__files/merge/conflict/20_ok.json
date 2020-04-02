@@ -1,0 +1,8 @@
+{
+  "url": "http://localhost:29999/repos/test/repo/pulls/20",
+  "number": 20,
+  "state": "open",
+  "mergeable": true,
+  "rebaseable": true,
+  "mergeable_state": "clean"
+}

@@ -1,0 +1,11 @@
+{
+  "url": "http://localhost:29999/repos/test/repo/pulls/20",
+  "number": 20,
+  "state": "open",
+  "mergeable": false,
+  "rebaseable": true,
+  "mergeable_state": "dirty",
+  "user": {
+    "login": "creator"
+  }
+}

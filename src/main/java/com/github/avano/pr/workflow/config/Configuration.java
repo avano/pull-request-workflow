@@ -33,6 +33,7 @@ public class Configuration {
 
     public String reviewDismissMessage;
     public String mergeMessage;
+    public String conflictMessage;
 
     public String approvalStrategy;
 
@@ -92,6 +93,10 @@ public class Configuration {
 
     public String getMergeMessage() {
         return mergeMessage;
+    }
+
+    public String getConflictMessage(int id) {
+        return conflictMessage.replace("<ID>", id + "");
     }
 
     public GHPullRequest.MergeMethod getMergeMethod() {

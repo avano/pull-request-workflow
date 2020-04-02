@@ -11,6 +11,7 @@ import org.kohsuke.github.GHEventPayload;
 import org.kohsuke.github.GHIssueState;
 import org.kohsuke.github.GHPerson;
 import org.kohsuke.github.GHPullRequest;
+import org.kohsuke.github.GHPullRequestReview;
 import org.kohsuke.github.GHPullRequestReviewState;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHUser;
@@ -19,7 +20,9 @@ import org.kohsuke.github.GitHubBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.Configuration;
+import com.github.avano.pr.workflow.message.LabelsMessage;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -54,6 +57,9 @@ public class GHClient {
 
     @Inject
     Configuration config;
+
+    @Inject
+    Bus eventBus;
 
     protected GitHub gitHub;
 
@@ -135,7 +141,7 @@ public class GHClient {
      * @return list of pull requests
      */
     public List<GHPullRequest> getPullRequests(String sha) {
-        return getRepository().queryPullRequests().state(GHIssueState.OPEN).list().asList().stream().filter(
+        return listOpenPullRequests().stream().filter(
             pr -> sha.equals(pr.getHead().getSha())
         ).collect(Collectors.toList());
     }
@@ -166,7 +172,7 @@ public class GHClient {
             return getRepository().getBranch(branch).getProtection().getRequiredStatusChecks().getContexts();
         } catch (IOException e) {
             if (!e.getMessage().contains("Branch not protected")) {
-                LOG.error("Unable to get repository: {}: " + e, getConfiguredRepository());
+                LOG.error("Unable to get repository {}: {}", getConfiguredRepository(), e);
             }
         }
         return null;
@@ -181,13 +187,14 @@ public class GHClient {
     public Map<GHUser, GHPullRequestReviewState> getReviews(GHPullRequest pr) {
         LOG.trace("PR #{}: Listing reviews", pr.getNumber());
         Map<GHUser, GHPullRequestReviewState> response = new HashMap<>();
-        pr.listReviews().asList().forEach(review -> {
-            try {
+
+        try {
+            for (GHPullRequestReview review : pr.listReviews().toList()) {
                 response.put(review.getUser(), review.getState());
-            } catch (IOException e) {
-                LOG.error("PR #{}: Unable to get user from review: " + e, pr.getNumber());
             }
-        });
+        } catch (IOException e) {
+            LOG.error("PR #{}: Unable to get user from review: {}", pr.getNumber(), e);
+        }
         return response;
     }
 
@@ -213,7 +220,7 @@ public class GHClient {
         try {
             pr.setAssignees(users);
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to add assignees: " + e, pr.getNumber());
+            LOG.error("PR #{}: Unable to add assignees: {}", pr.getNumber(), e);
         }
     }
 
@@ -239,7 +246,7 @@ public class GHClient {
         try {
             pr.requestReviewers(users);
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to request reviews: " + e, pr.getNumber());
+            LOG.error("PR #{}: Unable to request reviews: {}", pr.getNumber(), e);
         }
     }
 
@@ -253,9 +260,49 @@ public class GHClient {
         try {
             return pr.getUser();
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to get author: " + e, pr.getNumber());
+            LOG.error("PR #{}: Unable to get author: {}", pr.getNumber(), e);
         }
         return null;
+    }
+
+    /**
+     * Lists open pull requests.
+     * @return list of open pull requests
+     */
+    public List<GHPullRequest> listOpenPullRequests() {
+        try {
+            return getRepository().queryPullRequests().state(GHIssueState.OPEN).list().toList();
+        } catch (IOException e) {
+            LOG.error("Unable to list open pull requests", e);
+        }
+        return new ArrayList<>();
+    }
+
+    /**
+     * Creates a comment in given PR with given content.
+     * @param pr pull request
+     * @param content comment content
+     */
+    public void postComment(GHPullRequest pr, String content) {
+        try {
+            pr.comment(content);
+        } catch (IOException e) {
+            LOG.error("PR #{}: Unable to create comment: {}", pr.getNumber(), e);
+        }
+    }
+
+    /**
+     * Assigns the PR to author and modifies the labels accordingly.
+     * @param pr pull request
+     */
+    public void assignToAuthor(GHPullRequest pr) {
+        List<String> removeLabels = new ArrayList<>();
+        removeLabels.addAll(config.getApprovedLabels());
+        removeLabels.addAll(config.getReviewRequestedLabels());
+        eventBus.publish(Bus.EDIT_LABELS, new LabelsMessage(pr, config.getChangesRequestedLabels(), removeLabels));
+
+        // Set the assignee back to the author of the PR, because he needs to update the PR
+        setAssignees(pr, getAuthor(pr));
     }
 
     /**

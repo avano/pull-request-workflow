@@ -12,11 +12,13 @@ import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.ApprovalStrategy;
 import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.gh.GHClient;
+import com.github.avano.pr.workflow.message.ConflictMessage;
 
 import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -28,6 +30,9 @@ import io.quarkus.vertx.ConsumeEvent;
  */
 public class Merge {
     private static final Logger LOG = LoggerFactory.getLogger(Merge.class);
+
+    @Inject
+    Bus eventBus;
 
     @Inject
     Configuration config;
@@ -119,11 +124,26 @@ public class Merge {
                 reviewers.stream().map(GHPerson::getLogin).collect(Collectors.joining(", ")));
             client.setAssignees(pr, reviewers);
 
+            // Save open PRs so that we can check later if merging this PR caused a conflict in some other PR
+            List<GHPullRequest> mergeableOpenPullRequests = client.listOpenPullRequests().stream().filter(pullRequest -> {
+                try {
+                    // Filter out this PR and all that are not mergeable
+                    return pr.getNumber() != pullRequest.getNumber() && pullRequest.getMergeable() != null && pullRequest.getMergeable();
+                } catch (IOException e) {
+                    LOG.error("PR #{}: Unable to determine mergeable state", pullRequest.getNumber());
+                }
+                return false;
+            }).collect(Collectors.toList());
+
             LOG.info("PR #{}: Merging", pr.getNumber());
             pr.merge(config.getMergeMessage(), null, config.getMergeMethod());
             LOG.info("PR #{}: Merged", pr.getNumber());
+
+            if (!mergeableOpenPullRequests.isEmpty()) {
+                eventBus.publish(Bus.PR_CHECK_CONFLICT, new ConflictMessage(pr.getNumber(), mergeableOpenPullRequests));
+            }
         } catch (IOException e) {
-            LOG.error("Unable to process merge: " + e);
+            LOG.error("PR #{}: Unable to process merge: {}", pr.getNumber(), e);
         }
     }
 }
