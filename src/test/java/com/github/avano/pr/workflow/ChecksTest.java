@@ -112,4 +112,15 @@ public class ChecksTest extends TestParent {
         waitForInvocations(1);
         assertThat(busInvocations).isEmpty();
     }
+
+    @Test
+    public void shouldCreateCheckRunTest() {
+        // TODO: override Configuration#useChecks somehow
+//        stubFor(WireMock.post(urlEqualTo("/repos/" + TEST_REPO + "/check-runs"))
+//            .willReturn(aResponse().withStatus(201).withBody("{}")));
+//        checks.handleCheckRunCreate(new CheckRunMessage(loadPullRequest(1337), GHCheckRun.Status.COMPLETED,  GHCheckRun.Conclusion.SUCCESS));
+//
+//        List<LoggedRequest> requests = getRequests(WireMock.postRequestedFor(urlPathMatching("/repos/" + TEST_REPO + "/check-runs")));
+//        assertThat(requests).hasSize(1);
+    }
 }

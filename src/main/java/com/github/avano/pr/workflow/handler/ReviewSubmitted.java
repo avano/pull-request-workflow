@@ -1,5 +1,6 @@
 package com.github.avano.pr.workflow.handler;
 
+import org.kohsuke.github.GHCheckRun;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHPullRequestReview;
 import org.kohsuke.github.GHUser;
@@ -9,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.gh.GHClient;
+import com.github.avano.pr.workflow.message.CheckRunMessage;
 import com.github.avano.pr.workflow.message.EventMessage;
 import com.github.avano.pr.workflow.message.LabelsMessage;
 
@@ -74,15 +76,17 @@ public class ReviewSubmitted {
                 if (!client.changesRequested(pr)) {
                     addLabels.addAll(config.getApprovedLabels());
                     removeLabels.addAll(config.getChangesRequestedLabels());
+                    eventBus.publish(Bus.CHECK_RUN_CREATE, new CheckRunMessage(pr, GHCheckRun.Status.COMPLETED, GHCheckRun.Conclusion.SUCCESS));
                 }
                 // Review was provided, dismiss review requested label
                 removeLabels.addAll(config.getReviewRequestedLabels());
                 eventBus.publish(Bus.EDIT_LABELS, new LabelsMessage(pr, addLabels, removeLabels));
-                eventBus.publish(Bus.PR_MERGE, pr);
+                // Don't merge here, it will be handled by the checkrun event
                 break;
             case CHANGES_REQUESTED:
                 LOG.info("PR #{}: Changes requested by {}", pr.getNumber(), reviewEvent.getSender().getLogin());
                 client.assignToAuthor(pr);
+                eventBus.publish(Bus.CHECK_RUN_CREATE, new CheckRunMessage(pr, GHCheckRun.Status.COMPLETED, GHCheckRun.Conclusion.FAILURE));
                 break;
             case COMMENTED:
                 LOG.info("PR #{}: Commented by {}", pr.getNumber(), reviewEvent.getSender().getLogin());

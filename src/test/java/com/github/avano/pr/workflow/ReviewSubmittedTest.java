@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.kohsuke.github.GHCheckRun;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHPullRequestReview;
 import org.kohsuke.github.GHPullRequestReviewState;
@@ -21,6 +22,7 @@ import org.kohsuke.github.GHUser;
 import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.handler.ReviewSubmitted;
+import com.github.avano.pr.workflow.message.CheckRunMessage;
 import com.github.avano.pr.workflow.message.EventMessage;
 import com.github.avano.pr.workflow.message.LabelsMessage;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -64,24 +66,14 @@ public class ReviewSubmittedTest extends TestParent {
     public void shouldAddApprovedLabelWhenNoChangesAreRequestedTest() {
         reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.APPROVED));
 
-        waitForInvocationsAndAssert(2);
+        waitForInvocationsAndAssert(Bus.EDIT_LABELS, 1);
 
-        LabelsMessage labels;
-        GHPullRequest invocationPr;
-        if (busInvocations.get(0).getDestination().equals(Bus.EDIT_LABELS)) {
-            labels = (LabelsMessage) busInvocations.get(0).getMessage();
-            invocationPr = (GHPullRequest) busInvocations.get(1).getMessage();
-        } else {
-            labels = (LabelsMessage) busInvocations.get(1).getMessage();
-            invocationPr = (GHPullRequest) busInvocations.get(0).getMessage();
-        }
+        LabelsMessage labels = (LabelsMessage) getInvocations(Bus.EDIT_LABELS).get(0).getMessage();
 
         assertThat(labels.getPr().getNumber()).isEqualTo(PULL_REQUEST_ID);
         assertThat(labels.getAddLabels()).containsExactly(config.getApprovedLabels().toArray(new String[0]));
         assertThat(labels.getRemoveLabels()).contains(config.getReviewRequestedLabels().toArray(new String[0]));
         assertThat(labels.getRemoveLabels()).contains(config.getChangesRequestedLabels().toArray(new String[0]));
-
-        assertThat(invocationPr.getNumber()).isEqualTo(PULL_REQUEST_ID);
     }
 
     @Test
@@ -89,30 +81,20 @@ public class ReviewSubmittedTest extends TestParent {
         setField(pr, "number", CHANGES_REQUESTED_PR_ID);
         reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.APPROVED));
 
-        waitForInvocationsAndAssert(2);
-        LabelsMessage labels;
-        GHPullRequest invocationPr;
-        if (busInvocations.get(0).getDestination().equals(Bus.EDIT_LABELS)) {
-            labels = (LabelsMessage) busInvocations.get(0).getMessage();
-            invocationPr = (GHPullRequest) busInvocations.get(1).getMessage();
-        } else {
-            labels = (LabelsMessage) busInvocations.get(1).getMessage();
-            invocationPr = (GHPullRequest) busInvocations.get(0).getMessage();
-        }
+        waitForInvocationsAndAssert(Bus.EDIT_LABELS, 1);
+        LabelsMessage labels = ((LabelsMessage) getInvocations(Bus.EDIT_LABELS).get(0).getMessage());
 
         assertThat(labels.getPr().getNumber()).isEqualTo(CHANGES_REQUESTED_PR_ID);
         assertThat(labels.getAddLabels()).isEmpty();
         assertThat(labels.getRemoveLabels()).contains(config.getReviewRequestedLabels().toArray(new String[0]));
-
-        assertThat(invocationPr.getNumber()).isEqualTo(CHANGES_REQUESTED_PR_ID);
     }
 
     @Test
     public void shouldAddChangesRequestedLabelTest() {
         reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.CHANGES_REQUESTED));
 
-        waitForInvocationsAndAssert(1);
-        LabelsMessage labels = (LabelsMessage) busInvocations.get(0).getMessage();
+        waitForInvocationsAndAssert(Bus.EDIT_LABELS, 1);
+        LabelsMessage labels = (LabelsMessage) getInvocations(Bus.EDIT_LABELS).get(0).getMessage();
         assertThat(labels.getPr().getNumber()).isEqualTo(PULL_REQUEST_ID);
         assertThat(labels.getAddLabels()).containsExactly(config.getChangesRequestedLabels().toArray(new String[0]));
         assertThat(labels.getRemoveLabels()).contains(config.getReviewRequestedLabels().toArray(new String[0]));
@@ -122,8 +104,8 @@ public class ReviewSubmittedTest extends TestParent {
     public void shouldDismissApprovedLabelWhenChangesWereRequestedTest() {
         reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.CHANGES_REQUESTED));
 
-        waitForInvocationsAndAssert(1);
-        LabelsMessage labels = (LabelsMessage) busInvocations.get(0).getMessage();
+        waitForInvocationsAndAssert(Bus.EDIT_LABELS, 1);
+        LabelsMessage labels = (LabelsMessage) getInvocations(Bus.EDIT_LABELS).get(0).getMessage();
         assertThat(labels.getPr().getNumber()).isEqualTo(PULL_REQUEST_ID);
         assertThat(labels.getAddLabels()).containsExactly(config.getChangesRequestedLabels().toArray(new String[0]));
         assertThat(labels.getRemoveLabels()).contains(config.getApprovedLabels().toArray(new String[0]));
@@ -133,8 +115,8 @@ public class ReviewSubmittedTest extends TestParent {
     public void shouldAddCommentedLabelTest() {
         reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.COMMENTED));
 
-        waitForInvocationsAndAssert(1);
-        LabelsMessage labels = (LabelsMessage) busInvocations.get(0).getMessage();
+        waitForInvocationsAndAssert(Bus.EDIT_LABELS, 1);
+        LabelsMessage labels = (LabelsMessage) getInvocations(Bus.EDIT_LABELS).get(0).getMessage();
         assertThat(labels.getPr().getNumber()).isEqualTo(PULL_REQUEST_ID);
         assertThat(labels.getAddLabels()).containsExactly(config.getCommentedLabels().toArray(new String[0]));
         assertThat(labels.getRemoveLabels()).isEmpty();
@@ -171,6 +153,38 @@ public class ReviewSubmittedTest extends TestParent {
         assertThat(requests).hasSize(1);
         JSONArray assignees = new JSONObject(requests.get(0).getBodyAsString()).getJSONArray("assignees");
         assertThat(assignees).containsExactly("creator");
+    }
+
+    @Test
+    public void shouldCreateSuccessCheckRunWhenApprovedTest() {
+        reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.APPROVED));
+
+        waitForInvocationsAndAssert(Bus.CHECK_RUN_CREATE, 1);
+
+        CheckRunMessage msg = ((CheckRunMessage) getInvocations(Bus.CHECK_RUN_CREATE).get(0).getMessage());
+        assertThat(msg.getPr().getNumber()).isEqualTo(pr.getNumber());
+        assertThat(msg.getConclusion()).isEqualTo(GHCheckRun.Conclusion.SUCCESS);
+        assertThat(msg.getStatus()).isEqualTo(GHCheckRun.Status.COMPLETED);
+    }
+
+    @Test
+    public void shouldntCreateSuccessCheckRunWhenApprovedButChangesAreStillRequestedTest() {
+        setField(pr, "number", CHANGES_REQUESTED_PR_ID);
+        reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.APPROVED));
+
+        waitForInvocations(Bus.CHECK_RUN_CREATE, 1);
+        assertThat(getInvocations(Bus.CHECK_RUN_CREATE)).isEmpty();
+    }
+
+    @Test
+    public void shouldCreateFailedCheckRunWhenChangesWereRequestedTest() {
+        reviewSubmitted.handleReview(getEvent(pr, GHPullRequestReviewState.CHANGES_REQUESTED));
+        waitForInvocationsAndAssert(Bus.CHECK_RUN_CREATE, 1);
+
+        CheckRunMessage msg = ((CheckRunMessage) getInvocations(Bus.CHECK_RUN_CREATE).get(0).getMessage());
+        assertThat(msg.getPr().getNumber()).isEqualTo(pr.getNumber());
+        assertThat(msg.getConclusion()).isEqualTo(GHCheckRun.Conclusion.FAILURE);
+        assertThat(msg.getStatus()).isEqualTo(GHCheckRun.Status.COMPLETED);
     }
 
     private EventMessage getEvent(GHPullRequest pr, GHPullRequestReviewState state) {

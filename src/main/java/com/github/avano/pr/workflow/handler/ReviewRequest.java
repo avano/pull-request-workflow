@@ -1,5 +1,6 @@
 package com.github.avano.pr.workflow.handler;
 
+import org.kohsuke.github.GHCheckRun;
 import org.kohsuke.github.GHPullRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.gh.GHClient;
+import com.github.avano.pr.workflow.message.CheckRunMessage;
 import com.github.avano.pr.workflow.message.EventMessage;
 import com.github.avano.pr.workflow.message.LabelsMessage;
 
@@ -47,6 +49,7 @@ public class ReviewRequest {
         client.setAssignees(pr, client.getRequestedReviewers(pr));
 
         eventBus.publish(Bus.EDIT_LABELS, new LabelsMessage(pr, config.getReviewRequestedLabels(), null));
+        eventBus.publish(Bus.CHECK_RUN_CREATE, new CheckRunMessage(pr, GHCheckRun.Status.IN_PROGRESS, null));
     }
 
     /**
@@ -71,6 +74,7 @@ public class ReviewRequest {
         // If there are no reviewers left, remove review-requested labels if present
         if (client.getRequestedReviewers(pr).isEmpty()) {
             eventBus.publish(Bus.EDIT_LABELS, new LabelsMessage(pr, null, config.getReviewRequestedLabels()));
+            eventBus.publish(Bus.CHECK_RUN_CREATE, new CheckRunMessage(pr, GHCheckRun.Status.QUEUED, null));
         }
     }
 }

@@ -18,8 +18,6 @@ public class LogsEndpoint {
     private static final Logger LOG = LoggerFactory.getLogger(LogsEndpoint.class);
     private static final String PATH = ConfigProvider.getConfig().getValue("quarkus.log.file.path", String.class);
 
-    // todo remove
-//    private static final String PATH = "data/pull-request-workflow.log";
     /**
      * Returns the log file content.
      */

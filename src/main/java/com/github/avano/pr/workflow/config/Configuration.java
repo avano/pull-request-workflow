@@ -39,6 +39,8 @@ public class Configuration {
 
     public String mergeMethod;
 
+    public String reviewCheckName;
+
     public AuthMethod getAuth() {
         return AuthMethod.valueOf(auth.toUpperCase());
     }
@@ -105,6 +107,18 @@ public class Configuration {
 
     public ApprovalStrategy getApprovalStrategy() {
         return ApprovalStrategy.valueOf(approvalStrategy.toUpperCase());
+    }
+
+    public String getReviewCheckName() {
+        return reviewCheckName;
+    }
+
+    /**
+     * Manipulating checks can be done only using app.
+     * @return true/false
+     */
+    public boolean useChecks() {
+        return getAuth() == AuthMethod.APP;
     }
 
     /**
