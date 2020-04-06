@@ -7,7 +7,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.github.avano.pr.workflow.bus.Bus;
+import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.gh.GHClient;
+import com.github.avano.pr.workflow.message.CheckRunMessage;
 import com.github.avano.pr.workflow.message.CommitStatusMessage;
 import com.github.avano.pr.workflow.message.EventMessage;
 
@@ -28,6 +30,9 @@ public class Checks {
 
     @Inject
     Bus eventBus;
+
+    @Inject
+    Configuration config;
 
     /**
      * Handles the <a href="https://developer.github.com/v3/activity/events/types/#statusevent">commit status changed</a> event.
@@ -59,6 +64,20 @@ public class Checks {
         LOG.debug("Commit {}: Commit check run finished, conclusion is: {}", checkRun.getHeadSha(), checkRun.getConclusion());
         if ("success".equalsIgnoreCase(checkRun.getConclusion())) {
             tryToMergePrWithSha(checkRun.getHeadSha());
+        }
+    }
+
+    /**
+     * Creates a checkrun.
+     * @param message {@link CheckRunMessage} instance
+     */
+    @ConsumeEvent(Bus.CHECK_RUN_CREATE)
+    public void handleCheckRunCreate(CheckRunMessage message) {
+        LOG.trace(Bus.EVENT_RECEIVED_MESSAGE + Bus.CHECK_RUN_CREATE);
+        if (!config.useChecks()) {
+            LOG.debug("PR #{}: Not using app auth, not creating review check", message.getPr().getNumber());
+        } else {
+            client.createCheckRun(message.getPr(), message.getStatus(), message.getConclusion());
         }
     }
 

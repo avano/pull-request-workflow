@@ -5,15 +5,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 
 import org.json.JSONObject;
+import org.kohsuke.github.GHCheckRun;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHUser;
 
 import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.handler.ReviewRequest;
+import com.github.avano.pr.workflow.message.CheckRunMessage;
 import com.github.avano.pr.workflow.message.EventMessage;
 import com.github.avano.pr.workflow.message.LabelsMessage;
-import com.github.avano.pr.workflow.util.Invocation;
 
 import javax.inject.Inject;
 
@@ -36,12 +37,9 @@ public class ReviewRequestsTest extends TestParent {
 
         reviewRequest.handleReviewRequested(e);
 
-        waitForInvocationsAndAssert(1);
+        waitForInvocationsAndAssert(Bus.EDIT_LABELS, 1);
 
-        Invocation invocation = busInvocations.get(0);
-        assertThat(invocation.getDestination()).isEqualTo(Bus.EDIT_LABELS);
-
-        LabelsMessage labels = (LabelsMessage) invocation.getMessage();
+        LabelsMessage labels = (LabelsMessage) getInvocations(Bus.EDIT_LABELS).get(0).getMessage();
         assertThat(labels.getPr().getNumber()).isEqualTo(PULL_REQUEST_ID);
         assertThat(labels.getAddLabels()).containsExactly(config.getReviewRequestedLabels().toArray(new String[0]));
         assertThat(labels.getRemoveLabels()).isNull();
@@ -51,7 +49,7 @@ public class ReviewRequestsTest extends TestParent {
     public void shouldAddAsAssigneeTest() {
         reviewRequest.handleReviewRequested(getEvent(getPullRequestWithReviewers(DEFAULT_REVIEWER), DEFAULT_REVIEWER));
 
-        waitForInvocationsAndAssert(1);
+        waitForInvocationsAndAssert(2);
 
         assertThat(new JSONObject(getRequests(PR_PATCH).get(0).getBodyAsString()).getJSONArray("assignees")).containsExactly(DEFAULT_REVIEWER);
     }
@@ -60,7 +58,7 @@ public class ReviewRequestsTest extends TestParent {
     public void shouldRemoveAssigneeTest() {
         reviewRequest.handleReviewRequestRemoved(getEvent(getPullRequestWithReviewers(), DEFAULT_REVIEWER));
 
-        waitForInvocationsAndAssert(1);
+        waitForInvocationsAndAssert(2);
 
         assertThat(new JSONObject(getRequests(PR_PATCH).get(0).getBodyAsString()).getJSONArray("assignees")).hasSize(0);
     }
@@ -71,12 +69,9 @@ public class ReviewRequestsTest extends TestParent {
 
         reviewRequest.handleReviewRequestRemoved(e);
 
-        waitForInvocationsAndAssert(1);
+        waitForInvocationsAndAssert(Bus.EDIT_LABELS, 1);
 
-        Invocation invocation = busInvocations.get(0);
-        assertThat(invocation.getDestination()).isEqualTo(Bus.EDIT_LABELS);
-
-        LabelsMessage labels = (LabelsMessage) invocation.getMessage();
+        LabelsMessage labels = (LabelsMessage) getInvocations(Bus.EDIT_LABELS).get(0).getMessage();
         assertThat(labels.getPr().getNumber()).isEqualTo(PULL_REQUEST_ID);
         assertThat(labels.getAddLabels()).isNull();
         assertThat(labels.getRemoveLabels()).containsExactly(config.getReviewRequestedLabels().toArray(new String[0]));
@@ -112,15 +107,53 @@ public class ReviewRequestsTest extends TestParent {
 
         reviewRequest.handleReviewRequestRemoved(e);
 
-        waitForInvocationsAndAssert(1);
+        waitForInvocationsAndAssert(Bus.EDIT_LABELS, 1);
 
-        Invocation invocation = busInvocations.get(0);
-        assertThat(invocation.getDestination()).isEqualTo(Bus.EDIT_LABELS);
-
-        LabelsMessage labels = (LabelsMessage) invocation.getMessage();
+        LabelsMessage labels = (LabelsMessage) getInvocations(Bus.EDIT_LABELS).get(0).getMessage();
         assertThat(labels.getPr().getNumber()).isEqualTo(PULL_REQUEST_ID);
         assertThat(labels.getAddLabels()).isNull();
         assertThat(labels.getRemoveLabels()).containsExactly(config.getReviewRequestedLabels().toArray(new String[0]));
+    }
+
+    @Test
+    public void shouldCreateCheckRunWhenReviewWasRequestedTest() {
+        GHPullRequest pr = getPullRequestWithReviewers(DEFAULT_REVIEWER);
+        EventMessage e = getEvent(pr, DEFAULT_REVIEWER);
+
+        reviewRequest.handleReviewRequested(e);
+
+        waitForInvocationsAndAssert(Bus.CHECK_RUN_CREATE, 1);
+
+        CheckRunMessage msg = (CheckRunMessage) getInvocations(Bus.CHECK_RUN_CREATE).get(0).getMessage();
+        assertThat(msg.getPr().getNumber()).isEqualTo(pr.getNumber());
+        assertThat(msg.getConclusion()).isNull();
+        assertThat(msg.getStatus()).isEqualTo(GHCheckRun.Status.IN_PROGRESS);
+    }
+
+    @Test
+    public void shouldCreateQueuedCheckRunWhenReviewWasRemovedAndThereAreNoAssigneesLeftTest() {
+        GHPullRequest pr = getPullRequestWithReviewers();
+        EventMessage e = getEvent(pr, DEFAULT_REVIEWER);
+
+        reviewRequest.handleReviewRequestRemoved(e);
+
+        waitForInvocationsAndAssert(Bus.CHECK_RUN_CREATE, 1);
+
+        CheckRunMessage msg = (CheckRunMessage) getInvocations(Bus.CHECK_RUN_CREATE).get(0).getMessage();
+        assertThat(msg.getPr().getNumber()).isEqualTo(pr.getNumber());
+        assertThat(msg.getConclusion()).isNull();
+        assertThat(msg.getStatus()).isEqualTo(GHCheckRun.Status.QUEUED);
+    }
+
+    @Test
+    public void shouldntChangeCheckRunWhenReviewWasRemovedAndThereAreAssigneesLeftTest() {
+        GHPullRequest pr = getPullRequestWithReviewers(DEFAULT_REVIEWER);
+        setField(pr, "assignees", getUsers(DEFAULT_REVIEWER, SECOND_REVIEWER));
+
+        reviewRequest.handleReviewRequestRemoved(getEvent(pr, SECOND_REVIEWER));
+
+        waitForInvocations(Bus.CHECK_RUN_CREATE, 1);
+        assertThat(getInvocations(Bus.CHECK_RUN_CREATE)).isEmpty();
     }
 
     private EventMessage getEvent(GHPullRequest pr, String requestedReviewer) {

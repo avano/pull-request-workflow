@@ -31,13 +31,12 @@ public class Bus {
     public static final String PR_UNLABELED = "pr.unlabeled";
     public static final String EDIT_LABELS = "pr.labels";
 
-    public static final String PR_OPENED = "pr.opened";
-    public static final String PR_CLOSED = "pr.closed";
     public static final String PR_REOPENED = "pr.reopened";
 
     public static final String STATUS_CHANGED = "status.changed";
 
     public static final String CHECK_RUN_FINISHED = "run.finished";
+    public static final String CHECK_RUN_CREATE = "run.create";
 
     public static final String EVENT_PUBLISHED_MESSAGE = "Event published to destination: ";
     public static final String EVENT_RECEIVED_MESSAGE = "Event received from destination: ";

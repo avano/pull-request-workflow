@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import io.vertx.mutiny.core.eventbus.DeliveryContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -173,6 +174,15 @@ public class TestParent {
         return WireMock.findAll(pattern);
     }
 
+    protected List<Invocation> getInvocations(String destination) {
+        // Avoid concurrentmodificationexception by creating a new array first
+        return new ArrayList<>(busInvocations).stream().filter(i -> destination.equals(i.getDestination())).collect(Collectors.toList());
+    }
+
+    protected void waitForInvocations(String destination, int count) {
+        waitFor(() -> getInvocations(destination).size() == count, 5);
+    }
+
     protected void waitForInvocations(int count) {
         waitFor(() -> busInvocations.size() == count, 5);
     }
@@ -180,6 +190,11 @@ public class TestParent {
     protected void waitForInvocationsAndAssert(int count) {
         waitForInvocations(count);
         assertThat(busInvocations).hasSize(count);
+    }
+
+    protected void waitForInvocationsAndAssert(String destination, int count) {
+        waitForInvocations(destination, count);
+        assertThat(getInvocations(destination)).hasSize(count);
     }
 
     protected <T> T getInstance(Class<T> clazz, Map<String, Object> fields) {

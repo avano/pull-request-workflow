@@ -6,6 +6,8 @@ import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.kohsuke.github.GHAppInstallation;
 import org.kohsuke.github.GHAppInstallationToken;
+import org.kohsuke.github.GHCheckRun;
+import org.kohsuke.github.GHCheckRunBuilder;
 import org.kohsuke.github.GHCommitStatus;
 import org.kohsuke.github.GHEventPayload;
 import org.kohsuke.github.GHIssueState;
@@ -367,5 +369,26 @@ public class GHClient {
 
         //Builds the JWT and serializes it to a compact, URL-safe string
         return builder.compact();
+    }
+
+    /**
+     * Creates a check run for the HEAD of the PR.
+     * @param pr PR
+     * @param status CheckRun status
+     * @param conclusion CheckRun conclusion
+     */
+    public void createCheckRun(GHPullRequest pr, GHCheckRun.Status status, GHCheckRun.Conclusion conclusion) {
+        try {
+            GHCheckRunBuilder ghCheckRunBuilder =
+                gitHub.getRepository(pr.getRepository().getFullName()).createCheckRun(config.getReviewCheckName(), pr.getHead().getSha()).withStatus(status);
+            if (conclusion != null) {
+                ghCheckRunBuilder.withConclusion(conclusion);
+            }
+            ghCheckRunBuilder.create();
+            LOG.debug("PR #{}: Created check-run \"{}\" with status \"{}\" and conclusion \"{}\"",
+                pr.getNumber(), config.getReviewCheckName(), status.toString(), conclusion == null ? "" : conclusion);
+        } catch (IOException e) {
+            LOG.error("PR #{}: Unable to create checkrun: {}", pr.getNumber(), e);
+        }
     }
 }
