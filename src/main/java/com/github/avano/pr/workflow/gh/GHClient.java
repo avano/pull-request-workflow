@@ -1,5 +1,7 @@
 package com.github.avano.pr.workflow.gh;
 
+import org.apache.commons.lang3.time.DateUtils;
+
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -56,6 +58,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 @ApplicationScoped
 public class GHClient {
     private static final Logger LOG = LoggerFactory.getLogger(GHClient.class);
+    private Date refreshAt;
 
     @Inject
     Configuration config;
@@ -81,16 +84,20 @@ public class GHClient {
      */
     public void init(long installationId) {
         try {
-            LOG.debug("Initializing GitHub client with installation id {}", installationId);
             if (installationId == -1) {
                 gitHub = GitHub.connect(config.getUser().get(), config.getToken().get());
             } else {
-                gitHub = new GitHubBuilder().withJwtToken(createJWTToken()).build();
-                GHAppInstallation appInstallation = gitHub.getApp().getInstallationById(installationId);
-                GHAppInstallationToken appInstallationToken = appInstallation
-                    .createToken(appInstallation.getPermissions())
-                    .create();
-                gitHub = new GitHubBuilder().withAppInstallationToken(appInstallationToken.getToken()).build();
+                if (refreshAt == null || new Date().after(refreshAt)) {
+                    LOG.debug("Initializing GitHub client with installation id {}", installationId);
+                    refreshAt = DateUtils.addMinutes(new Date(), 10);
+                    LOG.trace("Will refresh GHClient at: " + refreshAt);
+                    gitHub = new GitHubBuilder().withJwtToken(createJWTToken()).build();
+                    GHAppInstallation appInstallation = gitHub.getApp().getInstallationById(installationId);
+                    GHAppInstallationToken appInstallationToken = appInstallation
+                        .createToken(appInstallation.getPermissions())
+                        .create();
+                    gitHub = new GitHubBuilder().withAppInstallationToken(appInstallationToken.getToken()).build();
+                }
             }
         } catch (IOException e) {
             throw new RuntimeException("Unable to create GitHub client instance", e);
