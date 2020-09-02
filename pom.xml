@@ -18,7 +18,7 @@
 		<github-api.version>1.116</github-api.version>
 		<bouncycastle.version>1.66</bouncycastle.version>
 		<jjwt.version>0.11.2</jjwt.version>
-		<commons-codec.version>1.14</commons-codec.version>
+		<commons-codec.version>1.15</commons-codec.version>
 
 		<wiremock.version>2.27.1</wiremock.version>
 		<assertj.version>3.17.0</assertj.version>
