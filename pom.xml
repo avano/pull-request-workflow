@@ -16,7 +16,7 @@
 
 		<quarkus-universe-bom.version>1.9.0.Final</quarkus-universe-bom.version>
 		<github-api.version>1.116</github-api.version>
-		<bouncycastle.version>1.66</bouncycastle.version>
+		<bouncycastle.version>1.67</bouncycastle.version>
 		<jjwt.version>0.11.2</jjwt.version>
 		<commons-codec.version>1.15</commons-codec.version>
 
