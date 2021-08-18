@@ -1,23 +1,20 @@
 package com.github.avano.pr.workflow.handler;
 
-import org.kohsuke.github.GHCheckRun;
-import org.kohsuke.github.GHCommitState;
-import org.kohsuke.github.GHPullRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.Configuration;
 import com.github.avano.pr.workflow.gh.GHClient;
 import com.github.avano.pr.workflow.message.CheckRunMessage;
 import com.github.avano.pr.workflow.message.CommitStatusMessage;
 import com.github.avano.pr.workflow.message.EventMessage;
+import io.quarkus.vertx.ConsumeEvent;
+import org.kohsuke.github.GHCheckRun;
+import org.kohsuke.github.GHCommitState;
+import org.kohsuke.github.GHPullRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
-
 import java.util.List;
-
-import io.quarkus.vertx.ConsumeEvent;
 
 /**
  * Handles checkrun and status events.
@@ -62,7 +59,7 @@ public class Checks {
         LOG.trace(Bus.EVENT_RECEIVED_MESSAGE + Bus.CHECK_RUN_FINISHED);
         GHCheckRun checkRun = prEvent.get();
         LOG.debug("Commit {}: Commit check run finished, conclusion is: {}", checkRun.getHeadSha(), checkRun.getConclusion());
-        if ("success".equalsIgnoreCase(checkRun.getConclusion())) {
+        if (checkRun.getConclusion() == GHCheckRun.Conclusion.SUCCESS) {
             tryToMergePrWithSha(checkRun.getHeadSha());
         }
     }

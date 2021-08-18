@@ -1,7 +1,6 @@
 package com.github.avano.pr.workflow.gh;
 
 import org.apache.commons.lang3.time.DateUtils;
-
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
@@ -276,6 +275,7 @@ public class GHClient {
 
     /**
      * Lists open pull requests.
+     *
      * @return list of open pull requests
      */
     public List<GHPullRequest> listOpenPullRequests() {
@@ -289,6 +289,7 @@ public class GHClient {
 
     /**
      * Creates a comment in given PR with given content.
+     *
      * @param pr pull request
      * @param content comment content
      */
@@ -302,6 +303,7 @@ public class GHClient {
 
     /**
      * Assigns the PR to author and modifies the labels accordingly.
+     *
      * @param pr pull request
      */
     public void assignToAuthor(GHPullRequest pr) {
@@ -316,6 +318,7 @@ public class GHClient {
 
     /**
      * Returns the map of checkname-checkstatus for given pull request's HEAD sha for both check-runs and commit statuses.
+     *
      * @param pr pull request
      * @return map of checkname-checkstatus
      */
@@ -323,7 +326,7 @@ public class GHClient {
         Map<String, String> checks = new HashMap<>();
         final String sha = pr.getHead().getSha();
         try {
-            pr.getRepository().getCheckRuns(sha).forEach(cr -> checks.put(cr.getName(), cr.getConclusion()));
+            pr.getRepository().getCheckRuns(sha).forEach(cr -> checks.put(cr.getName(), cr.getConclusion().toString()));
             Map<String, String> statuses = new HashMap<>();
             // Statuses are returned in newest-first order, so revert it and get last state of each status
             List<GHCommitStatus> ghCommitStatuses = pr.getRepository().listCommitStatuses(sha).toList();
@@ -380,6 +383,7 @@ public class GHClient {
 
     /**
      * Creates a check run for the HEAD of the PR.
+     *
      * @param pr PR
      * @param status CheckRun status
      * @param conclusion CheckRun conclusion
@@ -387,7 +391,8 @@ public class GHClient {
     public void createCheckRun(GHPullRequest pr, GHCheckRun.Status status, GHCheckRun.Conclusion conclusion) {
         try {
             GHCheckRunBuilder ghCheckRunBuilder =
-                gitHub.getRepository(pr.getRepository().getFullName()).createCheckRun(config.getReviewCheckName(), pr.getHead().getSha()).withStatus(status);
+                gitHub.getRepository(pr.getRepository().getFullName()).createCheckRun(config.getReviewCheckName(), pr.getHead().getSha())
+                    .withStatus(status);
             if (conclusion != null) {
                 ghCheckRunBuilder.withConclusion(conclusion);
             }
