@@ -23,7 +23,7 @@
 		<wiremock.version>2.29.1</wiremock.version>
 		<assertj.version>3.20.2</assertj.version>
 		<json.version>20210307</json.version>
-		<jetty.version>9.4.35.v20201120</jetty.version>
+		<jetty.version>11.0.6</jetty.version>
 
 		<compiler-plugin.version>3.8.1</compiler-plugin.version>
 		<quarkus-plugin.version>2.1.0.Final</quarkus-plugin.version>
