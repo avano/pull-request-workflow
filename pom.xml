@@ -20,7 +20,7 @@
 		<jjwt.version>0.11.2</jjwt.version>
 		<commons-codec.version>1.15</commons-codec.version>
 
-		<wiremock.version>2.29.1</wiremock.version>
+		<wiremock.version>2.30.1</wiremock.version>
 		<assertj.version>3.20.2</assertj.version>
 		<json.version>20210307</json.version>
 		<jetty.version>9.4.35.v20201120</jetty.version>
