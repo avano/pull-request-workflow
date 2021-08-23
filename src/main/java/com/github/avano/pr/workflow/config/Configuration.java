@@ -14,7 +14,7 @@ public interface Configuration {
     Map<String, String> repositoryConfigFiles = new HashMap<>();
     Map<String, RepositoryConfig> repositoryConfigs = new HashMap<>();
 
-    @WithDefault(".")
+    @WithDefault("./config")
     String repositoryConfigDir();
 
     @WithDefault("repoconfig")

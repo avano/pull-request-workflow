@@ -1,7 +1,7 @@
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.1
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4
 
-ARG JAVA_PACKAGE=java-1.8.0-openjdk-headless
-ARG RUN_JAVA_VERSION=1.3.5
+ARG JAVA_PACKAGE=java-11-openjdk
+ARG RUN_JAVA_VERSION=1.3.8
 
 ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en'
 
@@ -24,8 +24,7 @@ RUN microdnf install openssl curl ca-certificates ${JAVA_PACKAGE} \
 ENV JAVA_OPTIONS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 
 COPY config/* /deployments/config/
-COPY target/lib/* /deployments/lib/
-COPY target/*-runner.jar /deployments/app.jar
+COPY target/quarkus-app/ /deployments/
 
 WORKDIR /deployments
 EXPOSE 8080
