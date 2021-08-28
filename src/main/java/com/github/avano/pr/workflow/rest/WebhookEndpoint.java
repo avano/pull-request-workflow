@@ -56,7 +56,8 @@ public class WebhookEndpoint {
             return;
         }
 
-        if (!signature.isValid(rcfg.webhookSecret(), actualSignature, event.toString().getBytes(StandardCharsets.UTF_8))) {
+        if (rcfg.webhookSecret() != null && !signature.isValid(rcfg.webhookSecret(), actualSignature,
+            event.toString().getBytes(StandardCharsets.UTF_8))) {
             LOG.warn("Signature of the request doesn't match with expected signature, ignoring request");
             return;
         }
