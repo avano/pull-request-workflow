@@ -1,0 +1,46 @@
+# Authentication method; possible options "APP" (preferred) / "TOKEN"
+#auth = APP
+# User login when using TOKEN auth
+#user = <user>
+# Token when using TOKEN auth
+#token = <token>
+# App ID if using APP auth
+#appId = <id>
+# Installation ID when using APP auth
+#installationId = <id>
+# Private key when using APP auth - can be either absolute path to a file, or base64 encoded string
+#privateKey = <path or base64>
+# GitHub webhook secret
+#webhookSecret = <secret>
+
+# GitHub repository
+#repository = <owner>/<repository>
+
+# Comma-separated list of labels to add when the PR was approved
+#approvedLabels = approved
+# Comma-separated list of labels to add when changes were requested
+#changes-requested-labels = needs-update
+# Comma-separated list of labels to add when the review was requested
+#review-requested-labels = review-requested
+# Comma-separated list of labels to add when the PR was commented
+#commented-labels = commented
+# Label that specifies that the PR is still work in progress
+#wip-label = WIP
+
+# Reason message that will be used when dismissing the review when the PR was updated
+#review-dismiss-message = Pull request was updated
+# Message to add to the merge
+#merge-message = 🤖 Merged by https://github.com/avano/pull-request-workflow
+# Message that will be posted if some other PR causes a conflict in other PR. Use <ID> placeholder for the pull request id that caused the conflict
+#conflict-message = Pull request #<ID> caused a conflict in this PR
+
+# If it is enough when one reviewer approves the PR, or if all requested reviewers need to approve; possible options are "ANY" / "ALL"
+#approval-strategy = ANY
+# Method to use when merging the PR; possible options are "MERGE" / "SQUASH" / "REBASE"
+#merge-method = merge
+
+# Review check name that will be created in GitHub when using APP auth
+#review-check-name = Code reviwe
+
+# If the pull requests from dependabot should be merged even without a review if all checks pass
+#automergeDependabot = true

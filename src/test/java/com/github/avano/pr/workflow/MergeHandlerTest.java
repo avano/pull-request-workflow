@@ -9,16 +9,15 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlMatching;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import org.json.JSONObject;
 import org.kohsuke.github.GHPullRequest;
 
-import com.github.avano.pr.workflow.bus.Bus;
-import com.github.avano.pr.workflow.config.Configuration;
-import com.github.avano.pr.workflow.handler.Merge;
+import com.github.avano.pr.workflow.config.Constants;
+import com.github.avano.pr.workflow.handler.MergeHandler;
+import com.github.avano.pr.workflow.message.BusMessage;
 import com.github.avano.pr.workflow.message.ConflictMessage;
 import com.github.avano.pr.workflow.util.Invocation;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -32,15 +31,16 @@ import java.util.stream.Collectors;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
-public class MergeTest extends TestParent {
+public class MergeHandlerTest extends TestParent {
     private static final int OK_PR_ID = PULL_REQUEST_ID;
     private static final int MERGED_PR_ID = 1;
     private static final int DRAFT_PR_ID = 2;
     private static final int WIP_PR_ID = 3;
     private static final int NOT_MERGEABLE_PR_ID = 4;
+    private static final int DEPENDABOT_PR_ID = 5;
 
     @Inject
-    Merge merge;
+    MergeHandler mergeHandler;
 
     @Override
     @BeforeEach
@@ -53,7 +53,7 @@ public class MergeTest extends TestParent {
     @Test
     public void shouldMergeTest() {
         GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isTrue();
     }
@@ -61,7 +61,7 @@ public class MergeTest extends TestParent {
     @Test
     public void shouldNotMergeMergedTest()  {
         GHPullRequest pr = loadPullRequest(MERGED_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isFalse();
     }
@@ -69,7 +69,7 @@ public class MergeTest extends TestParent {
     @Test
     public void shouldNotMergeDraftTest() {
         GHPullRequest pr = loadPullRequest(DRAFT_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isFalse();
     }
@@ -77,7 +77,7 @@ public class MergeTest extends TestParent {
     @Test
     public void shouldNotMergeWipTest() {
         GHPullRequest pr = loadPullRequest(WIP_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isFalse();
     }
@@ -94,7 +94,7 @@ public class MergeTest extends TestParent {
             .willReturn(ok().withBody("[]")));
 
         GHPullRequest pr = loadPullRequest(OK_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isFalse();
     }
@@ -116,7 +116,7 @@ public class MergeTest extends TestParent {
             .willReturn(ok().withBodyFile("merge/checks/oneNonSuccessStatus.json")));
 
         GHPullRequest pr = loadPullRequest(OK_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isFalse();
     }
@@ -133,7 +133,7 @@ public class MergeTest extends TestParent {
             .willReturn(ok().withBody("[]")));
 
         GHPullRequest pr = loadPullRequest(OK_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isTrue();
     }
@@ -155,7 +155,7 @@ public class MergeTest extends TestParent {
             .willReturn(ok().withBodyFile("merge/checks/successStatus.json")));
 
         GHPullRequest pr = loadPullRequest(OK_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isTrue();
     }
@@ -172,7 +172,7 @@ public class MergeTest extends TestParent {
             .willReturn(ok().withBody("[]")));
 
         GHPullRequest pr = loadPullRequest(OK_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isTrue();
     }
@@ -194,7 +194,7 @@ public class MergeTest extends TestParent {
             .willReturn(ok().withBodyFile("merge/checks/failingNonRequiredStatus.json")));
 
         GHPullRequest pr = loadPullRequest(OK_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isTrue();
     }
@@ -205,7 +205,7 @@ public class MergeTest extends TestParent {
             .willReturn(ok().withBody("[]")));
 
         GHPullRequest pr = loadPullRequest(OK_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isFalse();
     }
@@ -216,7 +216,7 @@ public class MergeTest extends TestParent {
             .willReturn(ok().withBodyFile("reviews/changesRequested.json")));
 
         GHPullRequest pr = loadPullRequest(OK_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isFalse();
     }
@@ -224,7 +224,7 @@ public class MergeTest extends TestParent {
     @Test
     public void shouldNotMergeNotMergeableTest() {
         GHPullRequest pr = loadPullRequest(NOT_MERGEABLE_PR_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isFalse();
     }
@@ -232,7 +232,7 @@ public class MergeTest extends TestParent {
     @Test
     public void shouldAssignToReviewersTest() {
         GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         List<LoggedRequest> requests = getRequests(PR_PATCH);
         assertThat(requests).hasSize(1);
@@ -244,11 +244,11 @@ public class MergeTest extends TestParent {
         stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/pulls?state=open"))
             .willReturn(ok().withBodyFile("merge/conflict/twoMergeable.json")));
         GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isTrue();
         List<Invocation> conflictInvocations = busInvocations.stream()
-            .filter(i -> Bus.PR_CHECK_CONFLICT.equals(i.getDestination())).collect(Collectors.toList());
+            .filter(i -> Constants.PR_CHECK_CONFLICT.equals(i.getDestination())).collect(Collectors.toList());
         assertThat(conflictInvocations).hasSize(1);
     }
 
@@ -257,10 +257,10 @@ public class MergeTest extends TestParent {
         stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/pulls?state=open"))
             .willReturn(ok().withBody("[]")));
         GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isTrue();
-        assertThat(busInvocations.stream().filter(i -> Bus.PR_CHECK_CONFLICT.equals(i.getDestination())).findAny()).isNotPresent();
+        assertThat(busInvocations.stream().filter(i -> Constants.PR_CHECK_CONFLICT.equals(i.getDestination())).findAny()).isNotPresent();
     }
 
     @Test
@@ -275,13 +275,57 @@ public class MergeTest extends TestParent {
             .willReturn(aResponse().withStatus(201).withBody("{}")));
 
         GHPullRequest pr = loadPullRequest(PULL_REQUEST_ID);
-        merge.merge(pr);
+        mergeHandler.merge(new BusMessage(client, pr));
 
         assertThat(wasMerged(pr)).isTrue();
         List<Invocation> conflictInvocations = busInvocations.stream()
-            .filter(i -> Bus.PR_CHECK_CONFLICT.equals(i.getDestination())).collect(Collectors.toList());
+            .filter(i -> Constants.PR_CHECK_CONFLICT.equals(i.getDestination())).collect(Collectors.toList());
         assertThat(conflictInvocations).hasSize(1);
-        assertThat(((ConflictMessage)conflictInvocations.get(0).getMessage()).getOpenPullRequests()).hasSize(1);
+        assertThat(conflictInvocations.get(0).getMessage().get(ConflictMessage.class).getOpenPullRequests()).hasSize(1);
+    }
+
+    @Test
+    public void shouldNotAutomergeDependabotPrWhenDisabledTest() {
+        stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/\\d+/reviews"))
+            .willReturn(ok().withBody("[]")));
+
+        GHPullRequest pr = loadPullRequest(DEPENDABOT_PR_ID);
+        mergeHandler.merge(new BusMessage(client, pr));
+
+        assertThat(wasMerged(pr)).isFalse();
+    }
+
+    @Test
+    public void shouldAutomergeDependabotPrWhenEnabledTest() {
+        stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/\\d+/reviews"))
+            .willReturn(ok().withBody("[]")));
+
+        client.getRepositoryConfiguration().setAutomergeDependabot(true);
+        try {
+            GHPullRequest pr = loadPullRequest(DEPENDABOT_PR_ID);
+            mergeHandler.merge(new BusMessage(client, pr));
+
+            assertThat(wasMerged(pr)).isTrue();
+        } finally {
+            client.getRepositoryConfiguration().setAutomergeDependabot(false);
+        }
+    }
+
+    @Test
+    public void shouldntAutomergeUsersPRWhenDependabotIsEnabledTest() {
+        stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/\\d+/reviews"))
+            .willReturn(ok().withBody("[]")));
+
+        client.getRepositoryConfiguration().setAutomergeDependabot(true);
+        try {
+            GHPullRequest pr = loadPullRequest(OK_PR_ID);
+            mergeHandler.merge(new BusMessage(client, pr));
+
+            assertThat(wasMerged(pr)).isFalse();
+        } finally {
+            client.getRepositoryConfiguration().setAutomergeDependabot(false);
+        }
+
     }
 
     private boolean wasMerged(GHPullRequest pr) {

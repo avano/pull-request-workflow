@@ -15,10 +15,9 @@ import org.json.JSONObject;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
 
-import com.github.avano.pr.workflow.bus.Bus;
-import com.github.avano.pr.workflow.config.Configuration;
-import com.github.avano.pr.workflow.handler.Lifecycle;
-import com.github.avano.pr.workflow.message.EventMessage;
+import com.github.avano.pr.workflow.config.Constants;
+import com.github.avano.pr.workflow.handler.LifecycleHandler;
+import com.github.avano.pr.workflow.message.BusMessage;
 import com.github.avano.pr.workflow.message.LabelsMessage;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
@@ -32,15 +31,12 @@ import java.util.Set;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
-public class LifecycleTest extends TestParent {
+public class LifecycleHandlerTest extends TestParent {
     private static final int PR_NO_REVIEWERS_ID = 1338;
     private static final String PR_REVIEW_DISMISS_PATH_REGEX = "/repos/" + TEST_REPO + "/pulls/" + PULL_REQUEST_ID + "/reviews/\\d+/dismissals";
 
     @Inject
-    Lifecycle lifecycle;
-
-    @Inject
-    Configuration config;
+    LifecycleHandler lifecycleHandler;
 
     private GHPullRequest pr;
 
@@ -68,24 +64,24 @@ public class LifecycleTest extends TestParent {
 
     @Test
     public void shouldTryToMergeReopenedPrTest() {
-        lifecycle.handlePrReopened(new EventMessage(pr));
+        lifecycleHandler.handlePrReopened(new BusMessage(client, pr));
         waitForInvocations(1);
-        assertThat(busInvocations.get(0).getDestination()).isEqualTo(Bus.PR_MERGE);
+        assertThat(busInvocations.get(0).getDestination()).isEqualTo(Constants.PR_MERGE);
     }
 
     @Test
     public void shouldDismissReviewsOnUpdateTest() {
         pr = loadPullRequest(PULL_REQUEST_ID);
-        lifecycle.handlePrUpdated(new EventMessage(pr));
+        lifecycleHandler.handlePrUpdated(new BusMessage(client, pr));
         List<LoggedRequest> requests = getRequests(WireMock.putRequestedFor(urlPathMatching(PR_REVIEW_DISMISS_PATH_REGEX)));
         assertThat(requests).hasSize(2);
-        assertThat(requests.get(0).getBodyAsString()).contains(config.getReviewDismissMessage());
+        assertThat(requests.get(0).getBodyAsString()).contains(client.getRepositoryConfiguration().reviewDismissMessage());
     }
 
     @Test
     public void shouldAddReviewersAsAssigneesWhenPrWasUpdatedTest() {
         pr = loadPullRequest(PULL_REQUEST_ID);
-        lifecycle.handlePrUpdated(new EventMessage(pr));
+        lifecycleHandler.handlePrUpdated(new BusMessage(client, pr));
         List<LoggedRequest> requests = getRequests(PR_PATCH);
         assertThat(requests).hasSize(1);
         JSONArray assignees = new JSONObject(requests.get(0).getBodyAsString()).getJSONArray("assignees");
@@ -96,21 +92,21 @@ public class LifecycleTest extends TestParent {
     @Test
     public void shouldRemoveAllLabelsOnUpdateWithNoReviewersTest() {
         pr = loadPullRequest(PR_NO_REVIEWERS_ID);
-        lifecycle.handlePrUpdated(new EventMessage(pr));
+        lifecycleHandler.handlePrUpdated(new BusMessage(client, pr));
         waitForInvocationsAndAssert(1);
-        LabelsMessage labels = (LabelsMessage) busInvocations.get(0).getMessage();
+        LabelsMessage labels = busInvocations.get(0).getMessage().get(LabelsMessage.class);
         assertThat(labels.getPr().getNumber()).isEqualTo(pr.getNumber());
         assertThat(labels.getAddLabels()).isEmpty();
-        Set<String> removeLabels = new HashSet<>(config.getApprovedLabels());
-        removeLabels.addAll(config.getChangesRequestedLabels());
-        removeLabels.addAll(config.getCommentedLabels());
+        Set<String> removeLabels = new HashSet<>(client.getRepositoryConfiguration().approvedLabels());
+        removeLabels.addAll(client.getRepositoryConfiguration().changesRequestedLabels());
+        removeLabels.addAll(client.getRepositoryConfiguration().commentedLabels());
         assertThat(labels.getRemoveLabels()).containsExactlyInAnyOrder(removeLabels.toArray(new String[0]));
     }
 
     @Test
     public void shouldTryToMergeWhenMarkedAsReadyTest() {
-        lifecycle.handleReadyForReview(new EventMessage(loadPullRequest(PULL_REQUEST_ID)));
-        assertThat(lastDestination()).isEqualTo(Bus.PR_MERGE);
+        lifecycleHandler.handleReadyForReview(new BusMessage(client, loadPullRequest(PULL_REQUEST_ID)));
+        assertThat(lastDestination()).isEqualTo(Constants.PR_MERGE);
     }
 
     @Test
@@ -118,7 +114,7 @@ public class LifecycleTest extends TestParent {
         stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO + "/pulls/" + PULL_REQUEST_ID + "/reviews"))
             .willReturn(ok().withBodyFile("lifecycle/reviewsWithAuthor.json")));
         pr = loadPullRequest(PULL_REQUEST_ID);
-        lifecycle.handlePrUpdated(new EventMessage(pr));
+        lifecycleHandler.handlePrUpdated(new BusMessage(client, pr));
         List<LoggedRequest> requests = getRequests(PR_PATCH);
         assertThat(requests).hasSize(1);
         JSONArray assignees = new JSONObject(requests.get(0).getBodyAsString()).getJSONArray("assignees");

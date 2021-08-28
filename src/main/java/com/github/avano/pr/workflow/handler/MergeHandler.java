@@ -5,16 +5,14 @@ import org.kohsuke.github.GHPerson;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHPullRequestReviewState;
 import org.kohsuke.github.GHUser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import com.github.avano.pr.workflow.bus.Bus;
 import com.github.avano.pr.workflow.config.ApprovalStrategy;
-import com.github.avano.pr.workflow.config.Configuration;
+import com.github.avano.pr.workflow.config.Constants;
 import com.github.avano.pr.workflow.gh.GHClient;
+import com.github.avano.pr.workflow.handler.base.BaseHandler;
+import com.github.avano.pr.workflow.handler.interceptor.Log;
+import com.github.avano.pr.workflow.message.BusMessage;
 import com.github.avano.pr.workflow.message.ConflictMessage;
-
-import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -28,26 +26,17 @@ import io.quarkus.vertx.ConsumeEvent;
 /**
  * Merges the Pull request if it is possible.
  */
-public class Merge {
-    private static final Logger LOG = LoggerFactory.getLogger(Merge.class);
-
-    @Inject
-    Bus eventBus;
-
-    @Inject
-    Configuration config;
-
-    @Inject
-    GHClient client;
-
+public class MergeHandler extends BaseHandler {
     /**
      * Merges the PR if all prerequisities are fulfilled.
      *
-     * @param pr pull request
+     * @param msg {@link BusMessage} instance
      */
-    @ConsumeEvent(Bus.PR_MERGE)
-    public void merge(GHPullRequest pr) {
-        LOG.trace(Bus.EVENT_RECEIVED_MESSAGE + Bus.PR_MERGE);
+    @Log
+    @ConsumeEvent(Constants.PR_MERGE)
+    public void merge(BusMessage msg) {
+        GHClient client = msg.client();
+        GHPullRequest pr = msg.get(GHPullRequest.class);
         try {
             // Refresh the PR to work with latest state
             pr.refresh();
@@ -61,7 +50,7 @@ public class Merge {
                 return;
             }
 
-            if (pr.getLabels().stream().map(GHLabel::getName).collect(Collectors.toSet()).contains(config.getWipLabel())) {
+            if (pr.getLabels().stream().map(GHLabel::getName).collect(Collectors.toSet()).contains(client.getRepositoryConfiguration().wipLabel())) {
                 LOG.info("PR #{}: Not merging - work in progress", pr.getNumber());
                 return;
             }
@@ -88,6 +77,17 @@ public class Merge {
                 LOG.debug("PR #{}: No required checks defined for branch {}", pr.getNumber(), targetBranch);
             }
 
+            if (pr.getMergeable() == null || !pr.getMergeable()) {
+                LOG.warn("PR #{}: Not merging - not mergeable", pr.getNumber());
+                return;
+            }
+
+            if (Constants.DEPENDABOT_NAME.equals(client.getAuthor(pr).getLogin()) && client.getRepositoryConfiguration().automergeDependabot()) {
+                LOG.info("PR #{}: Automerging dependabot PR", pr.getNumber());
+                mergePullRequest(msg);
+                return;
+            }
+
             Map<GHUser, GHPullRequestReviewState> reviews = client.getReviews(pr);
             if (reviews.size() == 0) {
                 LOG.info("PR #{}: Not merging - no reviews", pr.getNumber());
@@ -104,7 +104,7 @@ public class Merge {
                 return;
             }
 
-            if (ApprovalStrategy.ALL == config.getApprovalStrategy()) {
+            if (ApprovalStrategy.ALL == client.getRepositoryConfiguration().approvalStrategy()) {
                 if (pr.getRequestedReviewers().size() != reviews.size() ||
                     reviews.values().stream().anyMatch(r -> r != GHPullRequestReviewState.APPROVED)) {
                     LOG.info("PR #{}: Not merging - approval from some reviewer missing (using \"all\" strategy)", pr.getNumber());
@@ -112,17 +112,29 @@ public class Merge {
                 }
             }
 
-            if (pr.getMergeable() == null || !pr.getMergeable()) {
-                LOG.warn("PR #{}: Not merging - not mergeable", pr.getNumber());
-                return;
-            }
+            mergePullRequest(msg);
+        } catch (IOException e) {
+            LOG.error("PR #{}: Unable to process merge", pr.getNumber(), e);
+        }
+    }
 
-            // Assign the PR to all users who provided a review, so that it will be visible who was involved
-            Set<GHUser> reviewers = client.getReviews(pr).keySet();
-            reviewers.remove(pr.getUser());
-            LOG.info("PR #{}: Setting assignees to: {}", pr.getNumber(),
-                reviewers.stream().map(GHPerson::getLogin).collect(Collectors.joining(", ")));
-            client.setAssignees(pr, reviewers);
+    /**
+     * Set the reviewers as assignees and merge the pull request.
+     * @param msg {@link BusMessage} instance
+     */
+    private void mergePullRequest(BusMessage msg) {
+        GHClient client = msg.client();
+        GHPullRequest pr = msg.get(GHPullRequest.class);
+
+        try {
+            if (!Constants.DEPENDABOT_NAME.equals(client.getAuthor(pr).getLogin())) {
+                // Assign the PR to all users who provided a review, so that it will be visible who was involved
+                Set<GHUser> reviewers = client.getReviews(pr).keySet();
+                reviewers.remove(pr.getUser());
+                LOG.info("PR #{}: Setting assignees to: {}", pr.getNumber(),
+                    reviewers.stream().map(GHPerson::getLogin).collect(Collectors.joining(", ")));
+                client.setAssignees(pr, reviewers);
+            }
 
             // Save open PRs so that we can check later if merging this PR caused a conflict in some other PR
             List<GHPullRequest> mergeableOpenPullRequests = client.listOpenPullRequests().stream().filter(pullRequest -> {
@@ -136,14 +148,14 @@ public class Merge {
             }).collect(Collectors.toList());
 
             LOG.info("PR #{}: Merging", pr.getNumber());
-            pr.merge(config.getMergeMessage(), null, config.getMergeMethod());
+            pr.merge(client.getRepositoryConfiguration().mergeMessage(), null, client.getRepositoryConfiguration().mergeMethod());
             LOG.info("PR #{}: Merged", pr.getNumber());
 
             if (!mergeableOpenPullRequests.isEmpty()) {
-                eventBus.publish(Bus.PR_CHECK_CONFLICT, new ConflictMessage(pr.getNumber(), mergeableOpenPullRequests));
+                eventBus.publish(Constants.PR_CHECK_CONFLICT, new BusMessage(client, new ConflictMessage(pr.getNumber(), mergeableOpenPullRequests)));
             }
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to process merge: {}", pr.getNumber(), e);
+            LOG.error("PR #{}: Unable to process merge", pr.getNumber(), e);
         }
     }
 }

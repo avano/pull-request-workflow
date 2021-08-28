@@ -23,15 +23,14 @@ import org.kohsuke.github.GitHubBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.github.avano.pr.workflow.bus.Bus;
+import com.github.avano.pr.workflow.config.AuthMethod;
 import com.github.avano.pr.workflow.config.Configuration;
-import com.github.avano.pr.workflow.message.LabelsMessage;
+import com.github.avano.pr.workflow.config.RepositoryConfig;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
-import javax.json.JsonObject;
 
-import java.io.File;
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -40,6 +39,7 @@ import java.security.PrivateKey;
 import java.security.Security;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -50,6 +50,7 @@ import java.util.stream.Collectors;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
+import io.vertx.core.json.JsonObject;
 
 /**
  * Wrapper around GitHub API client + some convenient helper methods.
@@ -57,59 +58,50 @@ import io.jsonwebtoken.SignatureAlgorithm;
 @ApplicationScoped
 public class GHClient {
     private static final Logger LOG = LoggerFactory.getLogger(GHClient.class);
+    // Protected for testing
+    protected RepositoryConfig rcfg;
     private Date refreshAt;
 
     @Inject
     Configuration config;
 
-    @Inject
-    Bus eventBus;
-
     protected GitHub gitHub;
 
     /**
-     * Checks if the client is initialized.
+     * Inits the client based on the repository configuration.
      *
-     * @return true/false
+     * @param repository repository full name
      */
-    public boolean isInitialized() {
-        return gitHub != null;
-    }
+    public boolean init(String repository) {
+        RepositoryConfig rcfg = config.repositoryConfig(repository);
+        if (rcfg == null) {
+            LOG.warn("No repository configuration for {} found, ignoring", repository);
+            return false;
+        }
 
-    /**
-     * Inits the client based on the installation id. If the installation id is present, app auth is used, token otherwise.
-     *
-     * @param installationId installation id parsed from the event, -1 if not present
-     */
-    public void init(long installationId) {
+        this.rcfg = rcfg;
+        long installationId = rcfg.auth() == AuthMethod.APP ? rcfg.installationId() : -1;
+        long appId = rcfg.appId();
+
         try {
             if (installationId == -1) {
-                gitHub = GitHub.connect(config.getUser().get(), config.getToken().get());
+                gitHub = GitHub.connect(rcfg.user(), rcfg.token());
             } else {
                 if (refreshAt == null || new Date().after(refreshAt)) {
-                    LOG.debug("Initializing GitHub client with installation id {}", installationId);
+                    LOG.debug("Initializing GitHub client with app id {}, installation id {}", appId, installationId);
                     refreshAt = DateUtils.addMinutes(new Date(), 10);
                     LOG.trace("Will refresh GHClient at: " + refreshAt);
-                    gitHub = new GitHubBuilder().withJwtToken(createJWTToken()).build();
-                    GHAppInstallation appInstallation = gitHub.getApp().getInstallationById(installationId);
-                    GHAppInstallationToken appInstallationToken = appInstallation
-                        .createToken(appInstallation.getPermissions())
-                        .create();
+                    gitHub = new GitHubBuilder().withJwtToken(createJWTToken(appId)).build();
+                    GHAppInstallation appInstallation = gitHub.getApp().getInstallationById(rcfg.installationId());
+                    GHAppInstallationToken appInstallationToken =
+                        appInstallation.createToken().permissions(appInstallation.getPermissions()).create();
                     gitHub = new GitHubBuilder().withAppInstallationToken(appInstallationToken.getToken()).build();
                 }
             }
         } catch (IOException e) {
             throw new RuntimeException("Unable to create GitHub client instance", e);
         }
-    }
-
-    /**
-     * Returns the configured repository in form of <org/user>/<repository>.
-     *
-     * @return repository
-     */
-    public String getConfiguredRepository() {
-        return config.getRepository();
+        return true;
     }
 
     /**
@@ -119,13 +111,21 @@ public class GHClient {
      * @param clazz class representation of the event
      * @return event class instance
      */
-    public <T extends GHEventPayload> T parseEvent(JsonObject event, Class<T> clazz) {
+    public <E extends GHEventPayload> E parseEvent(JsonObject event, Class<E> clazz) {
         try {
             return gitHub.parseEventPayload(new StringReader(event.toString()), clazz);
-        } catch (IOException e) {
-            LOG.error("Unable to parse event payload: " + e);
+        } catch (IOException ex) {
+            LOG.error("Unable to parse event payload: " + ex);
         }
         return null;
+    }
+
+    /**
+     * Gets the repository configuration associated for this client instance.
+     * @return repository configuration
+     */
+    public RepositoryConfig getRepositoryConfiguration() {
+        return rcfg;
     }
 
     /**
@@ -135,7 +135,7 @@ public class GHClient {
      */
     public GHRepository getRepository() {
         try {
-            return gitHub.getRepository(getConfiguredRepository());
+            return gitHub.getRepository(rcfg.repository());
         } catch (IOException e) {
             LOG.error("Unable to get repository: " + e);
         }
@@ -180,7 +180,7 @@ public class GHClient {
             return getRepository().getBranch(branch).getProtection().getRequiredStatusChecks().getContexts();
         } catch (IOException e) {
             if (!e.getMessage().contains("Branch not protected")) {
-                LOG.error("Unable to get repository {}: {}", getConfiguredRepository(), e);
+                LOG.error("Unable to get repository {}", rcfg.repository(), e);
             }
         }
         return null;
@@ -201,7 +201,7 @@ public class GHClient {
                 response.put(review.getUser(), review.getState());
             }
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to get user from review: {}", pr.getNumber(), e);
+            LOG.error("PR #{}: Unable to get user from review", pr.getNumber(), e);
         }
         return response;
     }
@@ -228,7 +228,7 @@ public class GHClient {
         try {
             pr.setAssignees(users);
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to add assignees: {}", pr.getNumber(), e);
+            LOG.error("PR #{}: Unable to add assignees", pr.getNumber(), e);
         }
     }
 
@@ -254,7 +254,7 @@ public class GHClient {
         try {
             pr.requestReviewers(users);
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to request reviews: {}", pr.getNumber(), e);
+            LOG.error("PR #{}: Unable to request reviews", pr.getNumber(), e);
         }
     }
 
@@ -268,7 +268,7 @@ public class GHClient {
         try {
             return pr.getUser();
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to get author: {}", pr.getNumber(), e);
+            LOG.error("PR #{}: Unable to get author", pr.getNumber(), e);
         }
         return null;
     }
@@ -297,21 +297,16 @@ public class GHClient {
         try {
             pr.comment(content);
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to create comment: {}", pr.getNumber(), e);
+            LOG.error("PR #{}: Unable to create comment", pr.getNumber(), e);
         }
     }
 
     /**
-     * Assigns the PR to author and modifies the labels accordingly.
+     * Assigns the PR to author.
      *
      * @param pr pull request
      */
     public void assignToAuthor(GHPullRequest pr) {
-        List<String> removeLabels = new ArrayList<>();
-        removeLabels.addAll(config.getApprovedLabels());
-        removeLabels.addAll(config.getReviewRequestedLabels());
-        eventBus.publish(Bus.EDIT_LABELS, new LabelsMessage(pr, config.getChangesRequestedLabels(), removeLabels));
-
         // Set the assignee back to the author of the PR, because he needs to update the PR
         setAssignees(pr, getAuthor(pr));
     }
@@ -348,13 +343,16 @@ public class GHClient {
     private PrivateKey loadKey() {
         try {
             Security.addProvider(new BouncyCastleProvider());
-
-            PEMParser pemParser = new PEMParser(new InputStreamReader(new FileInputStream(new File(config.getKeyFile().get()))));
-            PEMKeyPair keyPair = (PEMKeyPair) pemParser.readObject();
-            JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
-            return converter.getPrivateKey(keyPair.getPrivateKeyInfo());
+            try (InputStreamReader isr = new InputStreamReader(
+                rcfg.keyIsFile() ? new FileInputStream(rcfg.privateKey()) :
+                    new ByteArrayInputStream(Base64.getDecoder().decode(rcfg.privateKey())))) {
+                PEMParser pemParser = new PEMParser(isr);
+                PEMKeyPair keyPair = (PEMKeyPair) pemParser.readObject();
+                JcaPEMKeyConverter converter = new JcaPEMKeyConverter().setProvider("BC");
+                return converter.getPrivateKey(keyPair.getPrivateKeyInfo());
+            }
         } catch (Exception e) {
-            throw new RuntimeException("Unable to load key: " + config.getKeyFile() + ": " + e);
+            throw new RuntimeException("Unable to load private key: " + e);
         }
     }
 
@@ -363,7 +361,7 @@ public class GHClient {
      *
      * @return JWT token
      */
-    private String createJWTToken() {
+    private String createJWTToken(long appId) {
         long expiration = 600000L;
         //The JWT signature algorithm we will be using to sign the token
         SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.RS256;
@@ -372,7 +370,7 @@ public class GHClient {
 
         JwtBuilder builder = Jwts.builder()
             .setIssuedAt(new Date(nowMillis))
-            .setIssuer(config.getAppId().get() + "")
+            .setIssuer(appId + "")
             .signWith(loadKey(), signatureAlgorithm);
 
         builder.setExpiration(new Date(nowMillis + expiration));
@@ -391,16 +389,16 @@ public class GHClient {
     public void createCheckRun(GHPullRequest pr, GHCheckRun.Status status, GHCheckRun.Conclusion conclusion) {
         try {
             GHCheckRunBuilder ghCheckRunBuilder =
-                gitHub.getRepository(pr.getRepository().getFullName()).createCheckRun(config.getReviewCheckName(), pr.getHead().getSha())
+                gitHub.getRepository(pr.getRepository().getFullName()).createCheckRun(rcfg.reviewCheckName(), pr.getHead().getSha())
                     .withStatus(status);
             if (conclusion != null) {
                 ghCheckRunBuilder.withConclusion(conclusion);
             }
             ghCheckRunBuilder.create();
-            LOG.debug("PR #{}: Created check-run \"{}\" with status \"{}\" and conclusion \"{}\"",
-                pr.getNumber(), config.getReviewCheckName(), status.toString(), conclusion == null ? "" : conclusion);
+            LOG.info("PR #{}: Created check-run \"{}\" with status \"{}\" and conclusion \"{}\"",
+                pr.getNumber(), rcfg.reviewCheckName(), status.toString(), conclusion == null ? "" : conclusion);
         } catch (IOException e) {
-            LOG.error("PR #{}: Unable to create checkrun: {}", pr.getNumber(), e);
+            LOG.error("PR #{}: Unable to create checkrun", pr.getNumber(), e);
         }
     }
 }

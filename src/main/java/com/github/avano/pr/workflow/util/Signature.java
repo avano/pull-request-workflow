@@ -1,15 +1,12 @@
 package com.github.avano.pr.workflow.util;
 
 import org.apache.commons.codec.binary.Hex;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.github.avano.pr.workflow.config.Configuration;
-import com.github.avano.pr.workflow.config.ConfigurationException;
-
-import javax.annotation.PostConstruct;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
 
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -19,38 +16,37 @@ import java.security.NoSuchAlgorithmException;
  */
 @ApplicationScoped
 public class Signature {
+    private static final Logger LOG = LoggerFactory.getLogger(Signature.class);
     private static final String GH_SIGNATURE_ALGORITHM = "HmacSHA1";
-    private Mac mac;
-
-    @Inject
-    Configuration config;
-
-    @PostConstruct
-    public void init() {
-        try {
-            mac = Mac.getInstance(GH_SIGNATURE_ALGORITHM);
-            mac.init(new SecretKeySpec(config.getSecret().getBytes(), GH_SIGNATURE_ALGORITHM));
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            throw new ConfigurationException("Invalid configuration: " + e);
-        }
-    }
 
     /**
      * Computes the signature of given payload using the configured secret.
+     *
+     * @param secret repository secret
      * @param payload payload
      * @return signature in expected form
      */
-    public String compute(byte[] payload) {
+    public String compute(String secret, byte[] payload) {
+        Mac mac;
+        try {
+            mac = Mac.getInstance(GH_SIGNATURE_ALGORITHM);
+            mac.init(new SecretKeySpec(secret.getBytes(), GH_SIGNATURE_ALGORITHM));
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
+            LOG.error("Unable to compute signature: " + e);
+            return null;
+        }
         return "sha1=" + new String(Hex.encodeHex(mac.doFinal(payload)));
     }
 
     /**
      * Checks if the actual signature of the request matches the expected signature.
+     *
+     * @param webhookSecret webhook secret for given repository
      * @param actual actual signature sent by github
-     * @param payload payload
+     * @param payload event payload
      * @return true/false
      */
-    public boolean isValid(String actual, byte[] payload) {
-        return actual.equals(compute(payload));
+    public boolean isValid(String webhookSecret, String actual, byte[] payload) {
+        return actual.equals(compute(webhookSecret, payload));
     }
 }

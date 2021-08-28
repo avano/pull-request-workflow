@@ -15,10 +15,10 @@ import org.kohsuke.github.GHCommitState;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
 
-import com.github.avano.pr.workflow.bus.Bus;
-import com.github.avano.pr.workflow.handler.Checks;
+import com.github.avano.pr.workflow.config.Constants;
+import com.github.avano.pr.workflow.handler.CheckHandler;
+import com.github.avano.pr.workflow.message.BusMessage;
 import com.github.avano.pr.workflow.message.CommitStatusMessage;
-import com.github.avano.pr.workflow.message.EventMessage;
 import com.github.tomakehurst.wiremock.client.WireMock;
 
 import javax.inject.Inject;
@@ -26,17 +26,17 @@ import javax.inject.Inject;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
-public class ChecksTest extends TestParent {
+public class CheckHandlerTest extends TestParent {
     private static final String SHA = "6dcb09b5b57875f334f61aebed695e2e4193db5e";
 
     private static final String SUCCESS_CHECK_NAME = "checkrun-success";
 
     @Inject
-    Checks checks;
+    CheckHandler checkHandler;
 
-    private GHPullRequest pr1 = getInstance(GHPullRequest.class, fields("number", 1,
+    private final GHPullRequest pr1 = getInstance(GHPullRequest.class, fields("number", 1,
         "owner", getInstance(GHRepository.class, fields("full_name", TEST_REPO))));
-    private GHPullRequest pr3 = getInstance(GHPullRequest.class, fields("number", 3,
+    private final GHPullRequest pr3 = getInstance(GHPullRequest.class, fields("number", 3,
         "owner", getInstance(GHRepository.class, fields("full_name", TEST_REPO))));
 
     @Override
@@ -52,12 +52,12 @@ public class ChecksTest extends TestParent {
     public void shouldTryToMergeWhenCheckRunIsCompletedTest() {
         GHCheckRun checkRun = getInstance(GHCheckRun.class, fields("headSha", SHA, "conclusion", "success", "name", SUCCESS_CHECK_NAME));
 
-        checks.handleCheckRunFinished(new EventMessage(checkRun));
+        checkHandler.handleCheckRunFinished(new BusMessage(client, checkRun));
         waitForInvocationsAndAssert(2);
-        assertThat(busInvocations.get(0).getDestination()).isEqualTo(Bus.PR_MERGE);
-        assertThat(((GHPullRequest) busInvocations.get(0).getMessage()).getNumber()).isEqualTo(pr1.getNumber());
-        assertThat(busInvocations.get(1).getDestination()).isEqualTo(Bus.PR_MERGE);
-        assertThat(((GHPullRequest) busInvocations.get(1).getMessage()).getNumber()).isEqualTo(pr3.getNumber());
+        assertThat(busInvocations.get(0).getDestination()).isEqualTo(Constants.PR_MERGE);
+        assertThat(busInvocations.get(0).getMessage().get(GHPullRequest.class).getNumber()).isEqualTo(pr1.getNumber());
+        assertThat(busInvocations.get(1).getDestination()).isEqualTo(Constants.PR_MERGE);
+        assertThat(busInvocations.get(1).getMessage().get(GHPullRequest.class).getNumber()).isEqualTo(pr3.getNumber());
     }
 
     @Test
@@ -65,12 +65,12 @@ public class ChecksTest extends TestParent {
         GHCommit commit = getInstance(GHCommit.class, fields("sha", SHA));
         CommitStatusMessage status = new CommitStatusMessage(commit, GHCommitState.SUCCESS, SUCCESS_CHECK_NAME);
 
-        checks.handleStatusChanged(status);
+        checkHandler.handleStatusChanged(new BusMessage(client, status));
         waitForInvocationsAndAssert(2);
-        assertThat(busInvocations.get(0).getDestination()).isEqualTo(Bus.PR_MERGE);
-        assertThat(((GHPullRequest) busInvocations.get(0).getMessage()).getNumber()).isEqualTo(pr1.getNumber());
-        assertThat(busInvocations.get(1).getDestination()).isEqualTo(Bus.PR_MERGE);
-        assertThat(((GHPullRequest) busInvocations.get(1).getMessage()).getNumber()).isEqualTo(pr3.getNumber());
+        assertThat(busInvocations.get(0).getDestination()).isEqualTo(Constants.PR_MERGE);
+        assertThat(busInvocations.get(0).getMessage().get(GHPullRequest.class).getNumber()).isEqualTo(pr1.getNumber());
+        assertThat(busInvocations.get(1).getDestination()).isEqualTo(Constants.PR_MERGE);
+        assertThat(busInvocations.get(1).getMessage().get(GHPullRequest.class).getNumber()).isEqualTo(pr3.getNumber());
     }
 
     @Test
@@ -78,7 +78,7 @@ public class ChecksTest extends TestParent {
         GHCommit commit = getInstance(GHCommit.class, fields("sha", SHA));
         CommitStatusMessage status = new CommitStatusMessage(commit, GHCommitState.FAILURE, SUCCESS_CHECK_NAME);
 
-        checks.handleStatusChanged(status);
+        checkHandler.handleStatusChanged(new BusMessage(client, status));
         waitForInvocations(1);
         assertThat(busInvocations).hasSize(0);
     }
@@ -87,7 +87,7 @@ public class ChecksTest extends TestParent {
     public void shouldNotTryToMergeWhenCheckRunFailedTest() {
         GHCheckRun checkRun = getInstance(GHCheckRun.class, fields("headSha", SHA, "conclusion", "failure", "name", SUCCESS_CHECK_NAME));
 
-        checks.handleCheckRunFinished(new EventMessage(checkRun));
+        checkHandler.handleCheckRunFinished(new BusMessage(client, checkRun));
         waitForInvocations(1);
         assertThat(busInvocations).hasSize(0);
     }
@@ -97,7 +97,7 @@ public class ChecksTest extends TestParent {
         GHCommit commit = getInstance(GHCommit.class, fields("sha", "nonhead"));
         CommitStatusMessage status = new CommitStatusMessage(commit, GHCommitState.SUCCESS, SUCCESS_CHECK_NAME);
 
-        checks.handleStatusChanged(status);
+        checkHandler.handleStatusChanged(new BusMessage(client, status));
 
         waitForInvocations(1);
         assertThat(busInvocations).isEmpty();
@@ -107,7 +107,7 @@ public class ChecksTest extends TestParent {
     public void shouldIgnoreNonHeadCommitCheckRunTest() {
         GHCheckRun checkRun = getInstance(GHCheckRun.class, fields("headSha", "nonhead", "conclusion", "success", "name", SUCCESS_CHECK_NAME));
 
-        checks.handleCheckRunFinished(new EventMessage(checkRun));
+        checkHandler.handleCheckRunFinished(new BusMessage(client, checkRun));
 
         waitForInvocations(1);
         assertThat(busInvocations).isEmpty();

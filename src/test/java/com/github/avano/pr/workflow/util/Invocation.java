@@ -1,5 +1,7 @@
 package com.github.avano.pr.workflow.util;
 
+import com.github.avano.pr.workflow.message.BusMessage;
+
 public class Invocation {
     private String destination;
     private Object message;
@@ -17,8 +19,12 @@ public class Invocation {
         this.destination = destination;
     }
 
-    public Object getMessage() {
-        return message;
+    public BusMessage getMessage() {
+        return (BusMessage) message;
+    }
+
+    public <T> T getMessageAs(Class<T> tClass) {
+        return tClass.cast(message);
     }
 
     public void setMessage(Object message) {

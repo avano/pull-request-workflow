@@ -14,8 +14,8 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.kohsuke.github.GHPullRequest;
 
-import com.github.avano.pr.workflow.config.Configuration;
-import com.github.avano.pr.workflow.handler.Conflict;
+import com.github.avano.pr.workflow.handler.ConflictHandler;
+import com.github.avano.pr.workflow.message.BusMessage;
 import com.github.avano.pr.workflow.message.ConflictMessage;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
@@ -28,12 +28,9 @@ import java.util.List;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
-public class ConflictTest extends TestParent {
+public class ConflictHandlerTest extends TestParent {
     @Inject
-    Conflict conflict;
-
-    @Inject
-    Configuration config;
+    ConflictHandler conflictHandler;
 
     @Test
     public void shouldPostCommentWhenCausedConflictTest() {
@@ -51,13 +48,13 @@ public class ConflictTest extends TestParent {
         pullRequestList.add(loadPullRequest(21));
         ConflictMessage msg = new ConflictMessage(123, pullRequestList);
 
-        conflict.checkForConflict(msg);
+        conflictHandler.checkForConflict(new BusMessage(client, msg));
 
         List<LoggedRequest> requests = getRequests(WireMock.postRequestedFor(urlPathMatching("/repos/" + TEST_REPO + "/issues/\\d+/comments")));
         assertThat(requests).hasSize(1);
         assertThat(requests.get(0).getAbsoluteUrl()).endsWith("issues/20/comments");
         assertThat(new JSONObject(requests.get(0).getBodyAsString()).getString("body"))
-            .isEqualTo(config.getConflictMessage(123));
+            .isEqualTo(client.getRepositoryConfiguration().conflictMessage().replace("<ID>", 123 + ""));
     }
 
     @Test
@@ -76,7 +73,7 @@ public class ConflictTest extends TestParent {
         pullRequestList.add(loadPullRequest(21));
         ConflictMessage msg = new ConflictMessage(123, pullRequestList);
 
-        conflict.checkForConflict(msg);
+        conflictHandler.checkForConflict(new BusMessage(client, msg));
 
         List<LoggedRequest> requests = getRequests(WireMock.patchRequestedFor(urlPathMatching("/repos/" + TEST_REPO + "/issues/\\d+")));
         assertThat(requests).hasSize(1);
@@ -101,7 +98,7 @@ public class ConflictTest extends TestParent {
         pullRequestList.add(loadPullRequest(21));
         ConflictMessage msg = new ConflictMessage(123, pullRequestList);
 
-        conflict.checkForConflict(msg);
+        conflictHandler.checkForConflict(new BusMessage(client, msg));
 
         List<LoggedRequest> requests = getRequests(WireMock.postRequestedFor(urlPathMatching("/repos/" + TEST_REPO + "/issues/\\d+/comments")));
         assertThat(requests).isEmpty();

@@ -1,0 +1,32 @@
+{
+  "url": "http://localhost:29999/repos/test/repo/pulls/5",
+  "number": 5,
+  "state": "open",
+  "labels": [
+    {
+      "id": 208045946,
+      "node_id": "MDU6TGFiZWwyMDgwNDU5NDY=",
+      "url": "https://api.github.com/repos/octocat/Hello-World/labels/bug",
+      "name": "bug",
+      "description": "Something isn't working",
+      "color": "f29513",
+      "default": true
+    }
+  ],
+  "user": {
+    "login": "dependabot[bot]"
+  },
+  "merged_at": null,
+  "base": {
+    "label": "octocat:master",
+    "ref": "master"
+  },
+  "head": {
+    "sha": "asdfgh"
+  },
+  "draft": false,
+  "merged": false,
+  "mergeable": true,
+  "rebaseable": true,
+  "mergeable_state": "clean"
+}

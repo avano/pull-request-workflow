@@ -7,10 +7,9 @@ import org.junit.jupiter.api.Test;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import com.github.avano.pr.workflow.bus.Bus;
-import com.github.avano.pr.workflow.config.Configuration;
-import com.github.avano.pr.workflow.handler.Label;
-import com.github.avano.pr.workflow.message.EventMessage;
+import com.github.avano.pr.workflow.config.Constants;
+import com.github.avano.pr.workflow.handler.LabelHandler;
+import com.github.avano.pr.workflow.message.BusMessage;
 import com.github.avano.pr.workflow.message.LabelsMessage;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 
@@ -24,16 +23,13 @@ import io.quarkus.test.junit.QuarkusTest;
 @QuarkusTest
 public class LabelsTest extends TestParent {
     @Inject
-    Label label;
-
-    @Inject
-    Configuration config;
+    LabelHandler labelHandler;
 
     @Test
     public void shouldAddLabelTest() {
         List<String> labels = new ArrayList<>();
         labels.add("testLabel");
-        label.modifyLabels(new LabelsMessage(loadPullRequest(0), labels, null));
+        labelHandler.modifyLabels(new BusMessage(client, new LabelsMessage(loadPullRequest(0), labels, null)));
         waitFor(() -> !getRequests(PR_PATCH).isEmpty(), 5);
         List<LoggedRequest> requests = getRequests(PR_PATCH);
         assertThat(requests).hasSize(1);
@@ -46,7 +42,7 @@ public class LabelsTest extends TestParent {
     public void shouldRemoveLabelTest() {
         List<String> labels = new ArrayList<>();
         labels.add("bug");
-        label.modifyLabels(new LabelsMessage(loadPullRequest(0), null, labels));
+        labelHandler.modifyLabels(new BusMessage(client, new LabelsMessage(loadPullRequest(0), null, labels)));
         waitFor(() -> !getRequests(PR_PATCH).isEmpty(), 5);
         List<LoggedRequest> requests = getRequests(PR_PATCH);
         assertThat(requests).hasSize(1);
@@ -59,7 +55,7 @@ public class LabelsTest extends TestParent {
         labelsToAdd.add("testLabel");
         List<String> labelsToRemove = new ArrayList<>();
         labelsToRemove.add("bug");
-        label.modifyLabels(new LabelsMessage(loadPullRequest(0), labelsToAdd, labelsToRemove));
+        labelHandler.modifyLabels(new BusMessage(client, new LabelsMessage(loadPullRequest(0), labelsToAdd, labelsToRemove)));
         waitFor(() -> !getRequests(PR_PATCH).isEmpty(), 5);
         List<LoggedRequest> requests = getRequests(PR_PATCH);
         assertThat(requests).hasSize(1);
@@ -70,17 +66,17 @@ public class LabelsTest extends TestParent {
 
     @Test
     public void shouldTryToMergeWhenWipLabelWasRemovedTest() {
-        EventMessage message = new EventMessage(loadPullRequest(PULL_REQUEST_ID)).withAdditionalInfo(EventMessage.LABEL, config.getWipLabel());
-        label.handlePrUnlabeled(message);
+        BusMessage message = new BusMessage(client, loadPullRequest(PULL_REQUEST_ID)).with(BusMessage.LABEL, client.getRepositoryConfiguration().wipLabel());
+        labelHandler.handlePrUnlabeled(message);
 
         waitForInvocationsAndAssert(1);
-        assertThat(busInvocations.get(0).getDestination()).isEqualTo(Bus.PR_MERGE);
+        assertThat(busInvocations.get(0).getDestination()).isEqualTo(Constants.PR_MERGE);
     }
 
     @Test
     public void shouldntTryToMergeWhenOtherLabelWasRemovedTest() {
-        EventMessage message = new EventMessage(loadPullRequest(PULL_REQUEST_ID)).withAdditionalInfo(EventMessage.LABEL, "test");
-        label.handlePrUnlabeled(message);
+        BusMessage message = new BusMessage(client, loadPullRequest(PULL_REQUEST_ID)).with(BusMessage.LABEL, "test");
+        labelHandler.handlePrUnlabeled(message);
 
         waitForInvocations(1);
         assertThat(busInvocations).isEmpty();

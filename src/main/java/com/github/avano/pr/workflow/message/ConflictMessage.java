@@ -8,9 +8,9 @@ import java.util.List;
  * Represents the bus message related to checking if conflict was created.
  */
 public class ConflictMessage {
-    private int mergedPrId;
+    private final int mergedPrId;
 
-    private List<GHPullRequest> openPullRequests;
+    private final List<GHPullRequest> openPullRequests;
 
     public ConflictMessage(int mergedPrId, List<GHPullRequest> openPullRequests) {
         this.mergedPrId = mergedPrId;
