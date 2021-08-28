@@ -44,3 +44,6 @@
 
 # If the pull requests from dependabot should be merged even without a review if all checks pass
 #automergeDependabot = true
+
+# If the pull requests from the repository owner should be merged even without a review if all checks pass
+#automergeOwnerPRs = false
