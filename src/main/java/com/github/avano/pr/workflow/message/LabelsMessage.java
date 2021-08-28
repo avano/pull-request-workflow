@@ -8,9 +8,9 @@ import java.util.List;
  * Represents the bus message with labels changes.
  */
 public class LabelsMessage {
-    private GHPullRequest pr;
-    private List<String> addLabels;
-    private List<String> removeLabels;
+    private final GHPullRequest pr;
+    private final List<String> addLabels;
+    private final List<String> removeLabels;
 
     public LabelsMessage(GHPullRequest pr, List<String> addLabels, List<String> removeLabels) {
         this.pr = pr;

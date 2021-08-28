@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHUser;
 
+import com.github.avano.pr.workflow.message.BusMessage;
 import com.github.avano.pr.workflow.mock.GHClientMock;
 import com.github.avano.pr.workflow.util.Invocation;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -51,8 +52,7 @@ public class TestParent {
     public static final String PR_PATCH_URL = "/repos/" + TEST_REPO + "/issues/\\d+";
     public static final RequestPatternBuilder PR_PATCH = WireMock.patchRequestedFor(urlPathMatching(PR_PATCH_URL));
 
-    @Inject
-    GHClientMock client;
+    protected GHClientMock client;
 
     @Inject
     EventBus bus;
@@ -60,7 +60,8 @@ public class TestParent {
     protected static List<Invocation> busInvocations = Collections.synchronizedList(new ArrayList<>());
     protected static WireMockServer server;
 
-    private Consumer<DeliveryContext<Object>> testInterceptor = dc -> busInvocations.add(new Invocation(dc.message().address(), dc.message().body()));
+    private final Consumer<DeliveryContext<Object>> testInterceptor =
+        dc -> busInvocations.add(new Invocation(dc.message().address(), dc.message().body()));
 
     protected GHPullRequest loadPullRequest(int id) {
         try {
@@ -80,11 +81,9 @@ public class TestParent {
 
     @BeforeEach
     public void setup() {
+        client = new GHClientMock();
+        client.init(TEST_REPO);
         bus.addInboundInterceptor(testInterceptor);
-
-        if (!client.isInitialized()) {
-            client.init(-1);
-        }
 
         // Repository object Json
         stubFor(WireMock.get(urlEqualTo("/repos/" + TEST_REPO))
@@ -165,9 +164,9 @@ public class TestParent {
         return busInvocations.isEmpty() ? null : busInvocations.get(busInvocations.size() - 1).getDestination();
     }
 
-    public Object lastMessage() {
+    public BusMessage lastMessage() {
         waitFor(() -> !busInvocations.isEmpty(), 1);
-        return busInvocations.isEmpty() ? null : busInvocations.get(busInvocations.size() - 1).getMessage();
+        return busInvocations.isEmpty() ? null : (BusMessage) busInvocations.get(busInvocations.size() - 1).getMessage();
     }
 
     protected List<LoggedRequest> getRequests(RequestPatternBuilder pattern) {
@@ -180,11 +179,11 @@ public class TestParent {
     }
 
     protected void waitForInvocations(String destination, int count) {
-        waitFor(() -> getInvocations(destination).size() == count, 5);
+        waitFor(() -> getInvocations(destination).size() == count, 2);
     }
 
     protected void waitForInvocations(int count) {
-        waitFor(() -> busInvocations.size() == count, 5);
+        waitFor(() -> busInvocations.size() == count, 2);
     }
 
     protected void waitForInvocationsAndAssert(int count) {
@@ -199,7 +198,7 @@ public class TestParent {
 
     protected <T> T getInstance(Class<T> clazz, Map<String, Object> fields) {
         try {
-            T inst = clazz.newInstance();
+            T inst = clazz.getDeclaredConstructor().newInstance();
             fields.forEach((k, v) -> setField(inst, k, v));
             return inst;
         } catch (Exception e) {

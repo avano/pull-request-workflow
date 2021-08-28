@@ -1,9 +1,10 @@
 package com.github.avano.pr.workflow.mock;
 
-import static org.assertj.core.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.kohsuke.github.GitHubBuilder;
 
+import com.github.avano.pr.workflow.config.RepositoryConfig;
 import com.github.avano.pr.workflow.gh.GHClient;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -16,16 +17,25 @@ import io.quarkus.test.Mock;
 @ApplicationScoped
 public class GHClientMock extends GHClient {
     @Override
-    public void init(long installationId) {
+    public boolean init(String repository) {
+        this.rcfg = new RepositoryConfig();
+        rcfg.setRepository(repository);
+
+        rcfg.setApprovedLabels("approved");
+        rcfg.setCommentedLabels("commented");
+        rcfg.setChangesRequestedLabels("changes-requested");
+        rcfg.setReviewRequestedLabels("review-requested");
+        rcfg.setWipLabel("WIP");
+
+        rcfg.setConflictMessage("<ID> conflict");
+        rcfg.setReviewDismissMessage("Dismiss");
+
+        rcfg.setWebhookSecret("testsecret");
         try {
             gitHub = new GitHubBuilder().withEndpoint("http://localhost:29999").build();
         } catch (IOException e) {
             fail("Unable to create GitHub client instance", e);
         }
-    }
-
-    @Override
-    public String getConfiguredRepository() {
-        return "test/repo";
+        return true;
     }
 }
