@@ -88,6 +88,13 @@ public class MergeHandler extends BaseHandler {
                 return;
             }
 
+            if (client.getRepositoryConfiguration().automergeOwnerPRs() && client.getAuthor(pr).getLogin()
+                .equals(client.getRepositoryConfiguration().repository().split("/")[0])) {
+                LOG.info("PR #{}: Automerging owner's PR", pr.getNumber());
+                mergePullRequest(msg);
+                return;
+            }
+
             Map<GHUser, GHPullRequestReviewState> reviews = client.getReviews(pr);
             if (reviews.size() == 0) {
                 LOG.info("PR #{}: Not merging - no reviews", pr.getNumber());
@@ -120,6 +127,7 @@ public class MergeHandler extends BaseHandler {
 
     /**
      * Set the reviewers as assignees and merge the pull request.
+     *
      * @param msg {@link BusMessage} instance
      */
     private void mergePullRequest(BusMessage msg) {

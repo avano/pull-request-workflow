@@ -56,6 +56,8 @@ public class RepositoryConfig {
 
     private boolean automergeDependabot = false;
 
+    private boolean automergeOwnerPRs = false;
+
     public AuthMethod auth() {
         return auth;
     }
@@ -218,6 +220,14 @@ public class RepositoryConfig {
 
     public void setAutomergeDependabot(boolean automergeDependabot) {
         this.automergeDependabot = automergeDependabot;
+    }
+
+    public boolean automergeOwnerPRs() {
+        return automergeOwnerPRs;
+    }
+
+    public void setAutomergeOwnerPRs(boolean automergeOwnerPRs) {
+        this.automergeOwnerPRs = automergeOwnerPRs;
     }
 
     public boolean useChecks() {

@@ -38,6 +38,7 @@ public class MergeHandlerTest extends TestParent {
     private static final int WIP_PR_ID = 3;
     private static final int NOT_MERGEABLE_PR_ID = 4;
     private static final int DEPENDABOT_PR_ID = 5;
+    private static final int OWNER_PR_ID = 6;
 
     @Inject
     MergeHandler mergeHandler;
@@ -303,6 +304,33 @@ public class MergeHandlerTest extends TestParent {
         client.getRepositoryConfiguration().setAutomergeDependabot(true);
         try {
             GHPullRequest pr = loadPullRequest(DEPENDABOT_PR_ID);
+            mergeHandler.merge(new BusMessage(client, pr));
+
+            assertThat(wasMerged(pr)).isTrue();
+        } finally {
+            client.getRepositoryConfiguration().setAutomergeDependabot(false);
+        }
+    }
+
+    @Test
+    public void shouldNotMergeOwnersPrWhenDisabledTest() {
+        stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/\\d+/reviews"))
+            .willReturn(ok().withBody("[]")));
+
+        GHPullRequest pr = loadPullRequest(OWNER_PR_ID);
+        mergeHandler.merge(new BusMessage(client, pr));
+
+        assertThat(wasMerged(pr)).isFalse();
+    }
+
+    @Test
+    public void shouldMergeOwnersPrWhenEnabledTest() {
+        stubFor(WireMock.get(urlPathMatching("/repos/" + TEST_REPO + "/pulls/\\d+/reviews"))
+            .willReturn(ok().withBody("[]")));
+
+        client.getRepositoryConfiguration().setAutomergeOwnerPRs(true);
+        try {
+            GHPullRequest pr = loadPullRequest(OWNER_PR_ID);
             mergeHandler.merge(new BusMessage(client, pr));
 
             assertThat(wasMerged(pr)).isTrue();

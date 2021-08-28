@@ -60,6 +60,7 @@ public class AppLifecycle {
 
     /**
      * Lists config files (files ending with given repositoryConfigFileExtension) in the given directory.
+     *
      * @param directory directory where the config files should be present
      * @return list of paths
      */
@@ -70,6 +71,7 @@ public class AppLifecycle {
 
     /**
      * Creates a repository config object from given file.
+     *
      * @param file file
      */
     private void createRepositoryConfig(Path file) {
@@ -89,8 +91,13 @@ public class AppLifecycle {
      * Scans the given config dir for repository configuration files.
      */
     private void scanConfigDir() {
+        File configDir = new File(configuration.repositoryConfigDir());
+        if (!configDir.exists()) {
+            LOG.debug("Configuration directory {} doesn't exist, creating", configuration.repositoryConfigDir());
+            configDir.mkdir();
+        }
         LOG.debug("Scanning folder {} for .{} files", configuration.repositoryConfigDir(), configuration.repositoryConfigFileExtension());
-        for (Path configFilePath : configFiles(new File(configuration.repositoryConfigDir()))) {
+        for (Path configFilePath : configFiles(configDir)) {
             createRepositoryConfig(configFilePath);
         }
     }
