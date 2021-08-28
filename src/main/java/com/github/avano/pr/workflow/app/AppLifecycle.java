@@ -76,6 +76,7 @@ public class AppLifecycle {
      */
     private void createRepositoryConfig(Path file) {
         try {
+            LOG.debug("Processing repository config file {}", file);
             RepositoryConfig rcfg = mapper.readValue(IOUtils.readFile(file), RepositoryConfig.class);
             if (rcfg.validate()) {
                 String action = configuration.repositoryConfig(rcfg.repository()) == null ? "Created" : "Updated";

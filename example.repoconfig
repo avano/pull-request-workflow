@@ -40,10 +40,10 @@
 #merge-method = merge
 
 # Review check name that will be created in GitHub when using APP auth
-#review-check-name = Code reviwe
+#review-check-name = Code review
 
 # If the pull requests from dependabot should be merged even without a review if all checks pass
-#automergeDependabot = true
+#automergeDependabot = false
 
 # If the pull requests from the repository owner should be merged even without a review if all checks pass
 #automergeOwnerPRs = false
