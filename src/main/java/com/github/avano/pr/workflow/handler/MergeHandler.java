@@ -57,7 +57,7 @@ public class MergeHandler extends BaseHandler {
 
             // Check if all required checks passed
             final String targetBranch = pr.getBase().getRef();
-            Collection<String> requiredChecks = client.getRequiredChecks(targetBranch);
+            Set<String> requiredChecks = client.getRequiredChecks(targetBranch);
             if (requiredChecks != null && !requiredChecks.isEmpty()) {
                 LOG.info("PR #{}: Required checks: {}", pr.getNumber(), String.join(", ", requiredChecks));
                 final StringBuilder logMsg = new StringBuilder("PR #").append(pr.getNumber()).append(": Checks - ");
