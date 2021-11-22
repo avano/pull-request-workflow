@@ -43,8 +43,10 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import io.jsonwebtoken.JwtBuilder;
@@ -173,11 +175,11 @@ public class GHClient {
      * Gets the required check names for given branch if it is protected.
      *
      * @param branch branch name
-     * @return collection of required check names or null if the branch is not protected
+     * @return set of required check names or null if the branch is not protected
      */
-    public Collection<String> getRequiredChecks(String branch) {
+    public Set<String> getRequiredChecks(String branch) {
         try {
-            return getRepository().getBranch(branch).getProtection().getRequiredStatusChecks().getContexts();
+            return new HashSet<>(getRepository().getBranch(branch).getProtection().getRequiredStatusChecks().getContexts());
         } catch (IOException e) {
             if (!e.getMessage().contains("Branch not protected")) {
                 LOG.error("Unable to get repository {}", rcfg.repository(), e);
