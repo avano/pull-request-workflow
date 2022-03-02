@@ -15,7 +15,7 @@
 		<maven.compiler.target>11</maven.compiler.target>
 
 		<quarkus-universe-bom.version>2.7.2.Final</quarkus-universe-bom.version>
-		<github-api.version>1.301</github-api.version>
+		<github-api.version>1.302</github-api.version>
 		<bouncycastle.version>1.70</bouncycastle.version>
 		<jjwt.version>0.11.2</jjwt.version>
 		<commons-codec.version>1.15</commons-codec.version>
