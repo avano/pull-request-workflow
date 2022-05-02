@@ -21,7 +21,7 @@
 		<commons-codec.version>1.15</commons-codec.version>
 		<jackson.version>2.13.2</jackson.version>
 
-		<wiremock.version>2.33.1</wiremock.version>
+		<wiremock.version>2.33.2</wiremock.version>
 		<assertj.version>3.22.0</assertj.version>
 		<json.version>20220320</json.version>
 		<jetty.version>9.4.35.v20201120</jetty.version>
