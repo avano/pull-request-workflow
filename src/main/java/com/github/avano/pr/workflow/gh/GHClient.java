@@ -323,7 +323,10 @@ public class GHClient {
         Map<String, String> checks = new HashMap<>();
         final String sha = pr.getHead().getSha();
         try {
-            pr.getRepository().getCheckRuns(sha).forEach(cr -> checks.put(cr.getName(), cr.getConclusion().toString()));
+            pr.getRepository().getCheckRuns(sha).forEach(cr -> {
+                GHCheckRun.Conclusion conclusion = cr.getConclusion();
+                checks.put(cr.getName(), conclusion == null ? "unknown" : conclusion.toString());
+            });
             Map<String, String> statuses = new HashMap<>();
             // Statuses are returned in newest-first order, so revert it and get last state of each status
             List<GHCommitStatus> ghCommitStatuses = pr.getRepository().listCommitStatuses(sha).toList();
