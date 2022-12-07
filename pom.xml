@@ -26,7 +26,7 @@
 		<json.version>20220924</json.version>
 
 		<compiler-plugin.version>3.10.1</compiler-plugin.version>
-		<quarkus-plugin.version>2.14.1.Final</quarkus-plugin.version>
+		<quarkus-plugin.version>2.14.3.Final</quarkus-plugin.version>
 		<surefire-plugin.version>2.22.2</surefire-plugin.version>
 		<resources-plugin.version>3.2.0</resources-plugin.version>
 	</properties>
