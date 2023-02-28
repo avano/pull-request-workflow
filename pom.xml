@@ -15,18 +15,18 @@
 		<maven.compiler.target>11</maven.compiler.target>
 
 		<quarkus-universe-bom.version>2.14.2.Final</quarkus-universe-bom.version>
-		<github-api.version>1.313</github-api.version>
+		<github-api.version>1.314</github-api.version>
 		<bouncycastle.version>1.70</bouncycastle.version>
 		<jjwt.version>0.11.5</jjwt.version>
 		<commons-codec.version>1.15</commons-codec.version>
-		<jackson.version>2.14.1</jackson.version>
+		<jackson.version>2.14.2</jackson.version>
 
 		<wiremock.version>2.35.0</wiremock.version>
 		<assertj.version>3.23.1</assertj.version>
-		<json.version>20220924</json.version>
+		<json.version>20230227</json.version>
 
 		<compiler-plugin.version>3.11.0</compiler-plugin.version>
-		<quarkus-plugin.version>2.14.1.Final</quarkus-plugin.version>
+		<quarkus-plugin.version>2.16.3.Final</quarkus-plugin.version>
 		<surefire-plugin.version>2.22.2</surefire-plugin.version>
 		<resources-plugin.version>3.2.0</resources-plugin.version>
 	</properties>
